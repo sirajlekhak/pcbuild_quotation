@@ -13,15 +13,45 @@ export default function ComponentSelector({ components, onChange }: ComponentSel
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingComponent, setEditingComponent] = useState<string | null>(null);
+  const [editingComponentId, setEditingComponentId] = useState<string | null>(null);
+  const [editBuffer, setEditBuffer] = useState<{ name: string; price: string; quantity: string }>({
+    name: '',
+    price: '',
+    quantity: ''
+  });
   const [showLiveSearch, setShowLiveSearch] = useState(false);
 
-  const categories = ['All', 'CPU', 'GPU', 'RAM', 'Motherboard', 'Storage', 'PSU', 'Case', 'Cooling', 'Other'];
+  const categories = ['All', 'CPU', 'GPU', 'RAM', 'Motherboard', 'Storage', 'PSU', 'Case', 'Cooling', 'Monitor', 'Accessories', 'Other'];
+
+  const detectCategory = (title: string) => {
+    const lower = title.toLowerCase();
+    if (lower.match(/\b(i5|i7|i9|ryzen|core|pentium|celeron|xeon)\b/)) return 'CPU';
+    if (lower.match(/\b(rtx|gtx|radeon|gpu|graphics)\b/)) return 'GPU';
+    if (lower.includes('ram') || lower.includes('ddr')) return 'RAM';
+    if (lower.includes('motherboard') || /\b(b\d{3,4}|z\d{3,4}|h\d{3,4}|x\d{3,4})\b/.test(lower)) return 'Motherboard';
+    if (lower.includes('ssd') || lower.includes('hdd') || lower.includes('nvme') || lower.includes('hard drive')) return 'Storage';
+    if (lower.includes('psu') || lower.includes('power supply')) return 'PSU';
+    if (lower.includes('case') || lower.includes('cabinet') || lower.includes('chassis')) return 'Case';
+    if (lower.includes('cooler') || lower.includes('fan') || lower.includes('aio') || lower.includes('heatsink')) return 'Cooling';
+    if (lower.includes('monitor') || lower.includes('display') || lower.includes('screen')) return 'Monitor';
+    if (lower.includes('keyboard') || lower.includes('mouse') || lower.includes('headset') || lower.includes('accessory')) return 'Accessories';
+    return 'Other';
+  };
+
+  const addComponentFromSearch = (componentData: Omit<Component, 'id' | 'quantity'>) => {
+    const newComponent: Component = {
+      ...componentData,
+      id: Date.now().toString(),
+      quantity: 1,
+      category: detectCategory(componentData.name)
+    };
+    onChange([...components, newComponent]);
+  };
 
   const filteredSampleComponents = useMemo(() => {
     return sampleComponents.filter(component => {
       const matchesSearch = component.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          component.brand.toLowerCase().includes(searchTerm.toLowerCase());
+        component.brand.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'All' || component.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
@@ -31,25 +61,36 @@ export default function ComponentSelector({ components, onChange }: ComponentSel
     const newComponent: Component = {
       ...sampleComponent,
       id: Date.now().toString(),
-      quantity: 1
+      quantity: 1,
+      category: detectCategory(sampleComponent.name)
     };
     onChange([...components, newComponent]);
   };
 
-  const addComponentFromSearch = (componentData: Omit<Component, 'id' | 'quantity'>) => {
-    const newComponent: Component = {
-      ...componentData,
-      id: Date.now().toString(),
-      quantity: 1
-    };
-    onChange([...components, newComponent]);
+  const handleEdit = (component: Component) => {
+    setEditingComponentId(component.id);
+    setEditBuffer({
+      name: component.name,
+      price: component.price.toString(),
+      quantity: component.quantity.toString()
+    });
   };
 
-  const updateComponent = (id: string, updates: Partial<Component>) => {
-    onChange(components.map(comp => 
-      comp.id === id ? { ...comp, ...updates } : comp
+  const handleSave = (id: string) => {
+    onChange(components.map(comp =>
+      comp.id === id ? {
+        ...comp,
+        name: editBuffer.name,
+        price: Number(editBuffer.price),
+        quantity: Number(editBuffer.quantity),
+        category: detectCategory(editBuffer.name)
+      } : comp
     ));
-    setEditingComponent(null);
+    setEditingComponentId(null);
+  };
+
+  const handleCancel = () => {
+    setEditingComponentId(null);
   };
 
   const removeComponent = (id: string) => {
@@ -59,6 +100,7 @@ export default function ComponentSelector({ components, onChange }: ComponentSel
   const calculateComponentTotal = (component: Component) => {
     return component.price * component.quantity;
   };
+
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
@@ -94,39 +136,39 @@ export default function ComponentSelector({ components, onChange }: ComponentSel
           <div className="space-y-3">
             {components.map((component) => (
               <div key={component.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                {editingComponent === component.id ? (
+                {editingComponentId === component.id ? (
                   <div className="grid md:grid-cols-4 gap-3">
                     <input
                       type="text"
-                      value={component.name}
-                      onChange={(e) => updateComponent(component.id, { name: e.target.value })}
+                      value={editBuffer.name}
+                      onChange={(e) => setEditBuffer(prev => ({ ...prev, name: e.target.value }))}
                       className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                       placeholder="Component name"
                     />
                     <input
                       type="number"
-                      value={component.price}
-                      onChange={(e) => updateComponent(component.id, { price: Number(e.target.value) })}
+                      value={editBuffer.price}
+                      onChange={(e) => setEditBuffer(prev => ({ ...prev, price: e.target.value }))}
                       className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                       placeholder="Price"
                     />
                     <input
                       type="number"
-                      value={component.quantity}
-                      onChange={(e) => updateComponent(component.id, { quantity: Number(e.target.value) })}
+                      value={editBuffer.quantity}
+                      onChange={(e) => setEditBuffer(prev => ({ ...prev, quantity: e.target.value }))}
                       className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                       placeholder="Quantity"
                       min="1"
                     />
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setEditingComponent(null)}
+                        onClick={() => handleSave(component.id)}
                         className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
                       >
                         Save
                       </button>
                       <button
-                        onClick={() => setEditingComponent(null)}
+                        onClick={handleCancel}
                         className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm"
                       >
                         Cancel
@@ -159,7 +201,7 @@ export default function ComponentSelector({ components, onChange }: ComponentSel
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setEditingComponent(component.id)}
+                        onClick={() => handleEdit(component)}
                         className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                       >
                         <Edit3 className="w-4 h-4" />
@@ -190,8 +232,7 @@ export default function ComponentSelector({ components, onChange }: ComponentSel
       {showAddForm && (
         <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
           <h3 className="text-lg font-medium text-gray-800 mb-4">Browse Component Catalog</h3>
-          
-          {/* Search and Filter */}
+
           <div className="flex flex-col md:flex-row gap-4 mb-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -214,7 +255,6 @@ export default function ComponentSelector({ components, onChange }: ComponentSel
             </select>
           </div>
 
-          {/* Component List */}
           <div className="max-h-64 overflow-y-auto space-y-2">
             {filteredSampleComponents.map((component, index) => (
               <div key={index} className="bg-white rounded-lg p-3 border border-gray-200 flex items-center justify-between">

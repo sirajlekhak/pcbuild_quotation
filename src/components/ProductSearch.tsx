@@ -25,7 +25,8 @@ export default function ProductSearch({ onAddComponent, searchQuery = '', catego
     let products: ProductData[] = [];
 
     if (selectedSeller === 'amazon') {
-      const response = await fetch(`http://localhost:5001/api/search?query=${encodeURIComponent(searchTerm)}`);
+      const response = await fetch(`http://localhost:5001/api/search?query=${encodeURIComponent(searchTerm)}&seller=${selectedSeller}`);
+
       const data = await response.json();
 
       products = data.map((item: any) => ({

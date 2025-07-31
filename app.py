@@ -1,4 +1,6 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS  # <-- ADD THIS
+
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -9,6 +11,7 @@ from backend.scrapers.flipkart import scrape_flipkart
 from backend.scrapers.mdcomputers import scrape_mdcomputers
 
 app = Flask(__name__)
+CORS(app)  # <-- ENABLE CORS FOR ALL ROUTES
 
 def init_driver(headless=True):
     options = Options()
