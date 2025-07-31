@@ -6,7 +6,6 @@ export const generatePDF = async () => {
   if (!element) return;
 
   try {
-    // Create canvas from the quotation content
     const canvas = await html2canvas(element, {
       scale: 2,
       useCORS: true,
@@ -14,23 +13,30 @@ export const generatePDF = async () => {
       backgroundColor: '#ffffff'
     });
 
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
+    const imgWidth = 210; // A4 width in mm
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = canvas.width;
-    const imgHeight = canvas.height;
-    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-    const imgX = (pdfWidth - imgWidth * ratio) / 2;
-    const imgY = 0;
+    const pageHeight = 297; // A4 height in mm
+    let position = 0;
 
-    pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-    
+    const imgData = canvas.toDataURL('image/jpeg', 0.9);
+    const pdf = new jsPDF('p', 'mm', 'a4');
+
+    // Add pages based on height
+    while (position < imgHeight) {
+      pdf.addImage(
+        imgData,
+        'JPEG',
+        0,
+        -position,
+        imgWidth,
+        imgHeight
+      );
+      position += pageHeight;
+
+      if (position < imgHeight) pdf.addPage();
+    }
+
     const quotationId = `QUO-${Date.now().toString().slice(-6)}`;
     pdf.save(`PC_Build_Quotation_${quotationId}.pdf`);
   } catch (error) {
@@ -38,6 +44,8 @@ export const generatePDF = async () => {
     alert('Error generating PDF. Please try again.');
   }
 };
+
+
 
 export const printQuotation = () => {
   const element = document.getElementById('quotation-content');
