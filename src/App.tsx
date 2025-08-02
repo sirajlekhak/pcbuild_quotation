@@ -7,6 +7,7 @@ import QuotationPreview from './components/QuotationPreview';
 import { Component, Customer } from './types';
 import { generatePDF, printQuotation, shareQuotation } from './utils/pdfGenerator';
 
+
 function App() {
   const [customer, setCustomer] = useState<Customer>({
     name: '',
@@ -119,20 +120,33 @@ function App() {
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-8 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h3 className="text-xl font-semibold mb-2">IT SERVICE WORLD</h3>
-            <p className="text-gray-400 mb-4">Your trusted partner for PC builds and IT services</p>
-            <div className="flex justify-center gap-8 text-sm text-gray-400">
-              <span>Siliguri, West Bengal</span>
-              <span>•</span>
-              <span>Professional Service</span>
-              <span>•</span>
-              <span>Quality Components</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="text-center">
+      <h3 className="text-xl font-semibold mb-2">IT SERVICE WORLD</h3>
+      <p className="text-gray-400 mb-2">
+        Your trusted partner for PC builds and IT services
+      </p>
+      <p className="text-gray-500 text-sm">
+        Crafted with ❤️ by{' '}
+        <a
+          href="https://github.com/sirajlekhak"
+          className="underline hover:text-blue-400"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          @ITLOGICLABS
+        </a>
+      </p>
+      <div className="flex justify-center gap-8 text-sm text-gray-400 mt-4">
+        <span>Siliguri, West Bengal</span>
+        <span>•</span>
+        <span>Professional Service</span>
+        <span>•</span>
+        <span>Quality Components</span>
+      </div>
+    </div>
+  </div>
+</footer>
     </div>
   );
 }

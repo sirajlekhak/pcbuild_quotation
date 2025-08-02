@@ -1,52 +1,31 @@
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import html2pdf from 'html2pdf.js';
 
-export const generatePDF = async () => {
+export const generatePDF = () => {
   const element = document.getElementById('quotation-content');
-  if (!element) return;
-
-  try {
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff'
-    });
-
-    const imgWidth = 210; // A4 width in mm
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    const pageHeight = 297; // A4 height in mm
-    let position = 0;
-
-    const imgData = canvas.toDataURL('image/jpeg', 0.9);
-    const pdf = new jsPDF('p', 'mm', 'a4');
-
-    // Add pages based on height
-    while (position < imgHeight) {
-      pdf.addImage(
-        imgData,
-        'JPEG',
-        0,
-        -position,
-        imgWidth,
-        imgHeight
-      );
-      position += pageHeight;
-
-      if (position < imgHeight) pdf.addPage();
-    }
-
-    const quotationId = `QUO-${Date.now().toString().slice(-6)}`;
-    pdf.save(`PC_Build_Quotation_${quotationId}.pdf`);
-  } catch (error) {
-    console.error('Error generating PDF:', error);
-    alert('Error generating PDF. Please try again.');
+  if (!element) {
+    alert('Element not found');
+    return;
   }
+
+  const options = {
+    margin: 0.5, // margins in inches
+    filename: `PC_Build_Quotation_${Date.now()}.pdf`,
+    image: { type: 'jpeg', quality: 1 },
+    html2canvas: { scale: 3, useCORS: true, backgroundColor: '#ffffff' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  html2pdf()
+    .set(options)
+    .from(element)
+    .save()
+    .catch((err) => {
+      console.error('PDF generation error:', err);
+      alert('Error generating PDF. Please try again.');
+    });
 };
 
-
-
+// Print function remains unchanged
 export const printQuotation = () => {
   const element = document.getElementById('quotation-content');
   if (!element) return;
@@ -82,6 +61,7 @@ export const printQuotation = () => {
   printWindow.print();
 };
 
+// Share function remains unchanged
 export const shareQuotation = async () => {
   if (navigator.share) {
     try {

@@ -3,7 +3,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium import webdriver
-import time
 
 def detect_category(title):
     title = title.lower()
@@ -19,16 +18,21 @@ def detect_category(title):
     if "psu" in title or "power supply" in title: return "PSU"
     return "Other"
 
+def init_driver():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    return webdriver.Chrome(options=chrome_options)
+
 def scrape_amazon(driver, query):
     print("Scraping Amazon.in...")
     products = []
 
-    # Format search query
     formatted_query = query.replace(" ", "+")
     url = f"https://www.amazon.in/s?k={formatted_query}"
     driver.get(url)
 
-    # Wait for results
     try:
         WebDriverWait(driver, 15).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.s-main-slot > div[data-component-type='s-search-result']"))
@@ -40,7 +44,7 @@ def scrape_amazon(driver, query):
     items = driver.find_elements(By.CSS_SELECTOR, "div.s-main-slot > div[data-component-type='s-search-result']")
     print(f"[INFO] Found {len(items)} items.")
 
-    for item in items[:10]:  # Limit to first 10 results
+    for item in items[:10]:
         try:
             title = item.find_element(By.CSS_SELECTOR, "h2 span").text.strip()
             title = title[:80] + "..." if len(title) > 80 else title
@@ -51,10 +55,7 @@ def scrape_amazon(driver, query):
         try:
             a_tag = item.find_element(By.CSS_SELECTOR, "h2 a")
             partial_link = a_tag.get_attribute("href")
-            if partial_link.startswith("/"):
-                link = "https://www.amazon.in" + partial_link
-            else:
-                link = partial_link
+            link = "https://www.amazon.in" + partial_link if partial_link.startswith("/") else partial_link
         except:
             link = "#"
 
@@ -76,17 +77,24 @@ def scrape_amazon(driver, query):
 
     return products
 
-# Example usage:
+# -------------- Add This Part Below -----------------
+
+from .flipkart import scrape_flipkart
+# from .mdcomputers import scrape_mdcomputers  # optional for later
+
+def scrape_all(query):
+    driver = init_driver()
+    all_products = []
+    try:
+        all_products.extend(scrape_amazon(driver, query))
+        all_products.extend(scrape_flipkart(driver, query))
+        # all_products.extend(scrape_mdcomputers(driver, query))
+    finally:
+        driver.quit()
+    return all_products
+
+# Standalone test
 if __name__ == "__main__":
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Remove this line to see browser
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-
-    driver = webdriver.Chrome(options=chrome_options)
-
-    results = scrape_amazon(driver, "intel i5")
-    driver.quit()
-
+    results = scrape_all("intel i5")
     from pprint import pprint
     pprint(results)

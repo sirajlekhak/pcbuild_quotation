@@ -1,142 +1,159 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, ExternalLink, Star, ShoppingCart, RefreshCw, Filter } from 'lucide-react';
-import { ProductData, priceService } from '../services/priceService';
 import { Component } from '../types';
 
 interface ProductSearchProps {
   onAddComponent: (component: Omit<Component, 'id' | 'quantity'>) => void;
-  searchQuery?: string;
-  category?: string;
+  apiBaseUrl?: string;
 }
 
-export default function ProductSearch({ onAddComponent, searchQuery = '', category }: ProductSearchProps) {
-  const [query, setQuery] = useState(searchQuery);
-  const [products, setProducts] = useState<ProductData[]>([]);
+interface ScrapedProduct {
+  title: string;
+  price: string;
+  link: string;
+  source?: string;
+  warranty?: string;
+  brand?: string;
+  model?: string;
+}
+
+export default function ProductSearch({ onAddComponent, apiBaseUrl = 'http://localhost:5001/api' }: ProductSearchProps) {
+  const [query, setQuery] = useState('');
+  const [products, setProducts] = useState<ScrapedProduct[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [selectedSeller, setSelectedSeller] = useState<'all' | 'amazon' | 'flipkart' | 'mdcomputers'>('all');
-  const [sortBy, setSortBy] = useState<'price' | 'rating' | 'name'>('price');
-  const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 100000 });
 
   const searchProducts = useCallback(async (searchTerm: string) => {
-  if (!searchTerm.trim()) return;
+    if (!searchTerm.trim()) {
+      setProducts([]);
+      return;
+    }
 
-  setLoading(true);
-  try {
-    let products: ProductData[] = [];
+    setLoading(true);
+    setError('');
 
-    if (selectedSeller === 'amazon') {
-      const response = await fetch(`http://localhost:5001/api/search?query=${encodeURIComponent(searchTerm)}&seller=${selectedSeller}`);
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/search?query=${encodeURIComponent(searchTerm)}&seller=${selectedSeller}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch search results');
+      }
 
       const data = await response.json();
-
-      products = data.map((item: any) => ({
-        name: item.title,
-        price: parseInt(item.price.replace(/[^\d]/g, '')) || 0,
-        productUrl: item.link,
-        rating: null,
-        originalPrice: null,
-        lastUpdated: new Date(),
-        seller: 'amazon',
+      
+      // Transform the scraped data to match our component structure
+      const formattedProducts = data.map((item: any) => ({
+        title: item.title || item.name || 'Unknown Product',
+        price: formatPrice(item.price),
+        link: item.link || '#',
+        source: item.source || selectedSeller,
+        warranty: item.warranty || '1 year',
+        brand: extractBrand(item.title || item.name),
+        model: extractModel(item.title || item.name)
       }));
-    } else {
-      const result = await priceService.searchProducts(searchTerm, category);
-      products = result.products;
+
+      setProducts(formattedProducts);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to search products');
+      setProducts([]);
+    } finally {
+      setLoading(false);
     }
-
-    setProducts(products);
-  } catch (error) {
-    console.error('Search error:', error);
-    setProducts([]);
-  } finally {
-    setLoading(false);
-  }
-}, [category, selectedSeller]);
-
+  }, [apiBaseUrl, selectedSeller]);
 
   useEffect(() => {
-    if (searchQuery) {
-      setQuery(searchQuery);
-      searchProducts(searchQuery);
+    const debounceTimer = setTimeout(() => {
+      if (query) {
+        searchProducts(query);
+      }
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [query, searchProducts]);
+
+  const formatPrice = (price: string | number): string => {
+    if (typeof price === 'number') {
+      return price.toString();
     }
-  }, [searchQuery, searchProducts]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    searchProducts(query);
-  };
-
-  const filteredProducts = products.filter(product => {
-    const sellerMatch = selectedSeller === 'all' || product.seller === selectedSeller;
-    const priceMatch = product.price >= priceRange.min && product.price <= priceRange.max;
-    return sellerMatch && priceMatch;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case 'price':
-        return a.price - b.price;
-      case 'rating':
-        return (b.rating || 0) - (a.rating || 0);
-      case 'name':
-        return a.name.localeCompare(b.name);
-      default:
-        return 0;
-    }
-  });
-
-  const handleAddToQuotation = (product: ProductData) => {
-    const component: Omit<Component, 'id' | 'quantity'> = {
-      category: category as Component['category'] || 'Other',
-      name: product.name,
-      brand: extractBrand(product.name),
-      model: extractModel(product.name),
-      price: product.price,
-      link: product.productUrl,
-      warranty: getDefaultWarranty(category)
-    };
-    onAddComponent(component);
+    
+    // Extract numbers from price string (e.g., "₹15,999" -> "15999")
+    const numericPrice = price.replace(/[^\d]/g, '');
+    return numericPrice || '0';
   };
 
   const extractBrand = (productName: string): string => {
     const brands = ['AMD', 'Intel', 'NVIDIA', 'ASUS', 'MSI', 'Gigabyte', 'Corsair', 'Kingston', 'Samsung', 'WD', 'Seagate'];
-    const brand = brands.find(b => productName.toLowerCase().includes(b.toLowerCase()));
-    return brand || 'Generic';
+    const foundBrand = brands.find(b => 
+      productName.toLowerCase().includes(b.toLowerCase())
+    );
+    return foundBrand || 'Generic';
   };
 
   const extractModel = (productName: string): string => {
-    // Extract model from product name (simplified)
-    const words = productName.split(' ');
-    return words.slice(0, 3).join(' ');
+    // Simple model extraction - you might need to improve this
+    const modelPatterns = [
+      /(RTX\s\d{4})/i,
+      /(Ryzen\s\d\s\d{4})/i,
+      /(Core\si\d-\d{4})/i,
+      /(\d{4}[A-Z]*)/ // Matches 4-digit numbers with optional letters
+    ];
+    
+    for (const pattern of modelPatterns) {
+      const match = productName.match(pattern);
+      if (match) return match[0];
+    }
+    
+    return productName.split(' ').slice(0, 3).join(' ');
   };
 
-  const getDefaultWarranty = (category?: string): string => {
-    const warrantyMap: Record<string, string> = {
-      'CPU': '3 years',
-      'GPU': '3 years',
-      'RAM': 'Lifetime',
-      'Motherboard': '3 years',
-      'Storage': '5 years',
-      'PSU': '5 years',
-      'Case': '2 years',
-      'Cooling': '2 years'
-    };
-    return warrantyMap[category || ''] || '1 year';
+const handleAddToQuotation = (product: ScrapedProduct) => {
+  const component: Omit<Component, 'id' | 'quantity'> = {
+    category: product.category || detectCategory(product.title), // Preserve category if available
+    name: product.title,
+    brand: product.brand || extractBrand(product.title),
+    model: product.model || extractModel(product.title),
+    price: parseInt(formatPrice(product.price)) || 0,
+    link: product.link,
+    warranty: product.warranty || '1 year'
   };
+  onAddComponent(component);
+};
 
-  const getSellerLogo = (seller: string) => {
-    const logos = {
-      amazon: '🛒',
-      flipkart: '🛍️',
-      mdcomputers: '💻'
-    };
-    return logos[seller as keyof typeof logos] || '🏪';
-  };
+const detectCategory = (title: string): string => {
+  if (!title) return 'Other';
+  
+  const lower = title.toLowerCase();
+  
+  // CPU detection - more specific patterns first
+  if (lower.match(/\b(ryzen\s[3579]|threadripper|epyc)\b/)) return 'CPU';
+  if (lower.match(/\b(core\s(i[3579]|i9-|xeon)|pentium|celeron)\b/)) return 'CPU';
+  
+  // GPU detection
+  if (lower.match(/\b(rtx\s\d{4}|gtx\s\d{4}|radeon\s(rx\s)?\d{4}|arc\sa\d{3})\b/)) return 'GPU';
+  
+  // Other categories with more specific patterns
+  if (lower.match(/\b(ddr[45]?\s?\d{4}|memory|ram|sodimm)\b/)) return 'RAM';
+  if (lower.match(/\b(b\d{3,4}|z\d{3,4}|h\d{3,4}|x\d{3,4}|motherboard|mainboard)\b/)) return 'Motherboard';
+  if (lower.match(/\b(ssd|nvme|pcie\sgen\d|hard\sdisk|hdd|m\.2)\b/)) return 'Storage';
+  if (lower.match(/\b(power\ssupply|psu|smps)\b/)) return 'PSU';
+  if (lower.match(/\b(case|chassis|cabinet|tower)\b/)) return 'Case';
+  if (lower.match(/\b(cooler|aio|liquid\scooling|heatsink|fan)\b/)) return 'Cooling';
+  if (lower.match(/\b(monitor|display|screen|oled|lcd)\b/)) return 'Monitor';
+  if (lower.match(/\b(keyboard|mouse|headset|speaker|webcam)\b/)) return 'Accessories';
+  
+  return 'Other';
+};
 
   const getSellerColor = (seller: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       amazon: 'bg-orange-100 text-orange-800',
       flipkart: 'bg-blue-100 text-blue-800',
       mdcomputers: 'bg-green-100 text-green-800'
     };
-    return colors[seller as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+    return colors[seller.toLowerCase()] || 'bg-gray-100 text-gray-800';
   };
 
   return (
@@ -149,8 +166,8 @@ export default function ProductSearch({ onAddComponent, searchQuery = '', catego
       </div>
 
       {/* Search Form */}
-      <form onSubmit={handleSearch} className="mb-6">
-        <div className="flex gap-3">
+      <div className="mb-6">
+        <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
@@ -161,28 +178,10 @@ export default function ProductSearch({ onAddComponent, searchQuery = '', catego
               placeholder="Search for components (e.g., RTX 4060, Ryzen 5 5600X)"
             />
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
-            {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-            Search
-          </button>
-        </div>
-      </form>
-
-      {/* Filters */}
-      <div className="grid md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            <Filter className="w-4 h-4 inline mr-1" />
-            Seller
-          </label>
           <select
             value={selectedSeller}
             onChange={(e) => setSelectedSeller(e.target.value as any)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500"
+            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
           >
             <option value="all">All Sellers</option>
             <option value="amazon">Amazon</option>
@@ -190,50 +189,25 @@ export default function ProductSearch({ onAddComponent, searchQuery = '', catego
             <option value="mdcomputers">MD Computers</option>
           </select>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="price">Price (Low to High)</option>
-            <option value="rating">Rating (High to Low)</option>
-            <option value="name">Name (A to Z)</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Min Price</label>
-          <input
-            type="number"
-            value={priceRange.min}
-            onChange={(e) => setPriceRange(prev => ({ ...prev, min: Number(e.target.value) }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500"
-            placeholder="0"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Max Price</label>
-          <input
-            type="number"
-            value={priceRange.max}
-            onChange={(e) => setPriceRange(prev => ({ ...prev, max: Number(e.target.value) }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500"
-            placeholder="100000"
-          />
-        </div>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+          Error: {error}
+        </div>
+      )}
 
       {/* Results */}
       <div className="space-y-4">
         {loading && (
           <div className="text-center py-8">
             <RefreshCw className="w-8 h-8 animate-spin mx-auto text-purple-600 mb-2" />
-            <p className="text-gray-600">Searching across Amazon, Flipkart, and MD Computers...</p>
+            <p className="text-gray-600">Searching across {selectedSeller === 'all' ? 'all sellers' : selectedSeller}...</p>
           </div>
         )}
 
-        {!loading && filteredProducts.length === 0 && query && (
+        {!loading && products.length === 0 && query && (
           <div className="text-center py-8 text-gray-500">
             <Search className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p>No products found for "{query}"</p>
@@ -241,39 +215,30 @@ export default function ProductSearch({ onAddComponent, searchQuery = '', catego
           </div>
         )}
 
-        {filteredProducts.map((product, index) => (
+        {products.map((product, index) => (
           <div key={index} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className={`px-2 py-1 text-xs font-medium rounded ${getSellerColor(product.seller)}`}>
-                    {getSellerLogo(product.seller)} {product.seller.toUpperCase()}
+                  <span className={`px-2 py-1 text-xs font-medium rounded ${getSellerColor(product.source || '')}`}>
+                    {product.source?.toUpperCase() || 'ONLINE'}
                   </span>
-                  {product.rating && (
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="text-sm text-gray-600">{product.rating}</span>
-                    </div>
-                  )}
                 </div>
-                <h4 className="font-medium text-gray-800 mb-2 line-clamp-2">{product.name}</h4>
+                <h4 className="font-medium text-gray-800 mb-2">{product.title}</h4>
                 <div className="flex items-center gap-4">
                   <div className="text-2xl font-bold text-green-600">
-                    ₹{product.price.toLocaleString('en-IN')}
+                    ₹{parseInt(formatPrice(product.price)).toLocaleString('en-IN')}
                   </div>
-                  {product.originalPrice && product.originalPrice > product.price && (
-                    <div className="text-sm text-gray-500 line-through">
-                      ₹{product.originalPrice.toLocaleString('en-IN')}
-                    </div>
-                  )}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Last updated: {product.lastUpdated.toLocaleTimeString()}
-                </div>
+                {product.brand && (
+                  <div className="text-sm text-gray-600 mt-1">
+                    Brand: {product.brand}
+                  </div>
+                )}
               </div>
               <div className="flex flex-col gap-2">
                 <a
-                  href={product.productUrl}
+                  href={product.link}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm flex items-center gap-2"
@@ -293,12 +258,6 @@ export default function ProductSearch({ onAddComponent, searchQuery = '', catego
           </div>
         ))}
       </div>
-
-      {filteredProducts.length > 0 && (
-        <div className="mt-6 text-center text-sm text-gray-500">
-          Showing {filteredProducts.length} products • Prices updated in real-time
-        </div>
-      )}
     </div>
   );
 }
