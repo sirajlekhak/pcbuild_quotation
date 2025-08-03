@@ -35,56 +35,45 @@ def scrape_flipkart(driver, query):
 
     try:
         # Wait for product blocks to appear
-        blocks = WebDriverWait(driver, 10).until(
-            EC.presence_of_all_elements_located((
-                By.XPATH,
-                '//div[contains(@data-id,"") and descendant::div[contains(text(), "₹")]]'
-            ))
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div[data-id]"))
         )
-    except:
-        print("[ERROR] Flipkart results did not load.")
+        blocks = driver.find_elements(By.CSS_SELECTOR, "div[data-id]")
+    except Exception as e:
+        print(f"[ERROR] Flipkart results did not load: {e}")
         return []
 
     print(f"[INFO] Found {len(blocks)} product blocks.")
 
     for block in blocks[:10]:  # Limit to 10 products
         try:
-            # Title fallback logic
+            # Title extraction
             title = None
-            for selector in [
-                './/div[contains(@class, "KzDlHZ")]',
-                './/div[contains(@class, "_4rR01T")]',
-                './/a[contains(@title, "")]'
-            ]:
-                try:
-                    title = block.find_element(By.XPATH, selector).text.strip()
-                    break
-                except:
-                    continue
+            try:
+                title = block.find_element(By.CSS_SELECTOR, "a.IRpwTa, a.s1Q9rs, div._4rR01T, a._2rpwqI").text.strip()
+            except:
+                pass
+                
             if not title:
                 continue
             title = title[:80] + "..." if len(title) > 80 else title
 
-            # Price fallback logic
-            price = None
-            for selector in [
-                './/div[contains(@class, "Nx9bqj")]',
-                './/div[contains(@class, "_30jeq3")]'
-            ]:
-                try:
-                    price = block.find_element(By.XPATH, selector).text.strip()
-                    break
-                except:
-                    continue
-            if not price:
-                price = "N/A"
-
-            # Link
+            # Price extraction
+            price = "N/A"
             try:
-                a_tag = block.find_element(By.XPATH, './/a[contains(@href, "/itm/")]')
-                link = "https://www.flipkart.com" + a_tag.get_attribute("href")
+                price = block.find_element(By.CSS_SELECTOR, "div._30jeq3, div._25b18c div._30jeq3, div.Nx9bqj").text.strip()
             except:
-                link = "#"
+                pass
+
+            # Link extraction
+            link = "#"
+            try:
+                a_tag = block.find_element(By.CSS_SELECTOR, "a._1fQZEK, a.s1Q9rs, a._2rpwqI")
+                link = a_tag.get_attribute("href")
+                if not link.startswith("http"):
+                    link = "https://www.flipkart.com" + link
+            except:
+                pass
 
             category = detect_category(title)
             print(f"[Flipkart] {title} - {price} - {link} - {category}")
