@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileText, Download, Printer, Share2 } from 'lucide-react';
 import { Component, Customer, CompanyInfo } from '../types';
+import logo from '../assets/logo.jpg'; // Adjust the path to your logo
 
 interface QuotationPreviewProps {
   customer: Customer;
@@ -21,7 +22,7 @@ const companyInfo: CompanyInfo = {
   email: 'info@itserviceworld.com',
   gstin: 'XXXXXXXXXXXXXXX',
   website: 'www.itserviceworld.com',
-  logo: '/path/to/logo.png' // Add your logo path here
+    logo: logo // Add your logo path here
 };
 
 export default function QuotationPreview({

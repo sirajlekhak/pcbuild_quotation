@@ -68,14 +68,14 @@ export default function ComponentSelector({ components, onChange }: ComponentSel
     return 'Other';
   };
 
-  const filteredSampleComponents = useMemo(() => {
-    return backendComponents.filter(component => {
-      const matchesSearch = component.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        component.brand.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === 'All' || component.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [searchTerm, selectedCategory, backendComponents]);
+ const filteredSampleComponents = useMemo(() => {
+  return (Array.isArray(backendComponents) ? backendComponents : []).filter(component => {
+    const matchesSearch = component.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      component.brand.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || component.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+}, [searchTerm, selectedCategory, backendComponents]);
 
   const addComponent = (componentData: Component) => {
     const newComponent: Component = {
@@ -372,6 +372,8 @@ const handleAddOrUpdateComponent = async () => {
           />
         </div>
       )}
+      console.log('showLiveSearch:', showLiveSearch);
+
 
       {/* Component Form (Add/Edit) */}
       {showManualForm && (

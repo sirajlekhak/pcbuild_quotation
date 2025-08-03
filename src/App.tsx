@@ -6,7 +6,7 @@ import QuotationSettings from './components/QuotationSettings';
 import QuotationPreview from './components/QuotationPreview';
 import { Component, Customer } from './types';
 import { generatePDF, printQuotation, shareQuotation } from './utils/pdfGenerator';
-
+import logo from './assets/logo.jpg'; // Adjust the path to your logo
 
 function App() {
   const [customer, setCustomer] = useState<Customer>({
@@ -34,8 +34,15 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-r from-blue-600 to-green-600 rounded-xl">
-                <Monitor className="w-8 h-8 text-white" />
+              <div className="flex items-center gap-4">
+                {/* Company Logo */}
+                <img 
+                  src={logo} 
+                  alt="IT SERVICE WORLD Logo" 
+                  className="h-16 w-auto object-contain"
+                />
+                {/* Gradient Icon (optional - you can remove this if you don't want both) */}
+                
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">IT SERVICE WORLD</h1>
@@ -60,6 +67,7 @@ function App() {
         </div>
       </header>
 
+      {/* Rest of your component remains the same */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left Column - Forms */}
@@ -120,33 +128,33 @@ function App() {
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-8 mt-16">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div className="text-center">
-      <h3 className="text-xl font-semibold mb-2">IT SERVICE WORLD</h3>
-      <p className="text-gray-400 mb-2">
-        Your trusted partner for PC builds and IT services
-      </p>
-      <p className="text-gray-500 text-sm">
-        Crafted with ❤️ by{' '}
-        <a
-          href="https://github.com/sirajlekhak"
-          className="underline hover:text-blue-400"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          @ITLOGICLABS
-        </a>
-      </p>
-      <div className="flex justify-center gap-8 text-sm text-gray-400 mt-4">
-        <span>Siliguri, West Bengal</span>
-        <span>•</span>
-        <span>Professional Service</span>
-        <span>•</span>
-        <span>Quality Components</span>
-      </div>
-    </div>
-  </div>
-</footer>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h3 className="text-xl font-semibold mb-2">IT SERVICE WORLD</h3>
+            <p className="text-gray-400 mb-2">
+              Your trusted partner for PC builds and IT services
+            </p>
+            <p className="text-gray-500 text-sm">
+              Crafted with ❤️ by{' '}
+              <a
+                href="https://github.com/sirajlekhak"
+                className="underline hover:text-blue-400"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                @ITLOGICLABS
+              </a>
+            </p>
+            <div className="flex justify-center gap-8 text-sm text-gray-400 mt-4">
+              <span>Siliguri, West Bengal</span>
+              <span>•</span>
+              <span>Professional Service</span>
+              <span>•</span>
+              <span>Quality Components</span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
