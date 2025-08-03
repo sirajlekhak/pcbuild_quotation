@@ -37,21 +37,31 @@ export default function ComponentSelector({ components, onChange }: ComponentSel
   const categories = ['All', 'CPU', 'GPU', 'RAM', 'Motherboard', 'Storage', 'PSU', 'Case', 'Cooling', 'Monitor', 'Accessories', 'Other'];
 
   useEffect(() => {
-    const fetchComponents = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`${API_BASE}/components`);
-        if (!response.ok) throw new Error('Failed to fetch components');
-        const data = await response.json();
-        setBackendComponents(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch components');
-      } finally {
-        setLoading(false);
+  const fetchComponents = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_BASE}/components`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch components');
       }
-    };
-    fetchComponents();
-  }, []);
+      const data = await response.json();
+      if (data.success) {
+        setBackendComponents(data.components || []);
+      } else {
+        throw new Error(data.error || 'Invalid response format');
+      }
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch components');
+      setBackendComponents([]); // Reset to empty array on error
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchComponents();
+}, []); 
 
   const detectCategory = (title: string) => {
     const lower = title.toLowerCase();
