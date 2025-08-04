@@ -1,7 +1,6 @@
 import React from 'react';
 import { FileText, Download, Printer, Share2 } from 'lucide-react';
 import { Component, Customer, CompanyInfo } from '../types';
-import logo from '../assets/logo.jpg'; // Adjust the path to your logo
 
 interface QuotationPreviewProps {
   customer: Customer;
@@ -13,17 +12,8 @@ interface QuotationPreviewProps {
   onPrint: () => void;
   onShare: () => Promise<void>;
   isLoading?: boolean;
+  companyInfo: CompanyInfo; // Add companyInfo to props
 }
-
-const companyInfo: CompanyInfo = {
-  name: 'IT SERVICE WORLD',
-  address: 'Siliguri, West Bengal, India',
-  phone: '+91 XXXXX XXXXX',
-  email: 'info@itserviceworld.com',
-  gstin: 'XXXXXXXXXXXXXXX',
-  website: 'www.itserviceworld.com',
-    logo: logo // Add your logo path here
-};
 
 export default function QuotationPreview({
   customer,
@@ -34,7 +24,8 @@ export default function QuotationPreview({
   onGeneratePDF,
   onPrint,
   onShare,
-  isLoading = false
+  isLoading = false,
+  companyInfo // Destructure companyInfo from props
 }: QuotationPreviewProps) {
   const subtotal = components.reduce((sum, component) => sum + (component.price * component.quantity), 0);
   const discountAmount = (subtotal * discountRate) / 100;

@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Package, Trash2, Edit3, ExternalLink, Globe } from 'lucide-react';
-import { Component } from '../types';
+import { Plus, Search, Package, Trash2, Edit3, ExternalLink, Globe, Download, Upload } from 'lucide-react';import { Component } from '../types';
 import ProductSearch from './ProductSearch';
 
 interface ComponentSelectorProps {
@@ -35,23 +34,104 @@ export default function ComponentSelector({ components, onChange }: ComponentSel
   const [error, setError] = useState('');
 
   const categories = ['All', 'CPU', 'GPU', 'RAM', 'Motherboard', 'Storage', 'PSU', 'Case', 'Cooling', 'Monitor', 'Accessories', 'Other'];
+const exportComponents = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/components`);
+      if (!response.ok) throw new Error('Failed to fetch components');
+      
+      const data = await response.json();
+      const componentsToExport = data.components || [];
+      
+      const dataStr = JSON.stringify(componentsToExport, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      
+      const exportFileDefaultName = `components_backup_${new Date().toISOString().slice(0,10)}.json`;
+      
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+    } catch (err) {
+      console.error('Export failed:', err);
+      setError('Failed to export components');
+    }
+  };
 
-  useEffect(() => {
-    const fetchComponents = async () => {
-      setLoading(true);
+  const importComponents = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
       try {
-        const response = await fetch(`${API_BASE}/components`);
-        if (!response.ok) throw new Error('Failed to fetch components');
-        const data = await response.json();
-        setBackendComponents(data);
+        const content = e.target?.result as string;
+        const parsedData = JSON.parse(content);
+        
+        if (!Array.isArray(parsedData)) {
+          throw new Error('Invalid file format - expected array of components');
+        }
+
+        // Basic validation
+        const validComponents = parsedData.filter(comp => 
+          comp.name && comp.brand && comp.price !== undefined && comp.category
+        );
+
+        if (validComponents.length !== parsedData.length) {
+          console.warn('Some components were invalid and were filtered out');
+        }
+
+        // Send to backend
+        const response = await fetch(`${API_BASE}/components/import`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ components: validComponents }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save imported components');
+        }
+
+        // Refresh the component list
+        const fetchResponse = await fetch(`${API_BASE}/components`);
+        const data = await fetchResponse.json();
+        setBackendComponents(data.components || []);
+        
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch components');
-      } finally {
-        setLoading(false);
+        console.error('Import failed:', err);
+        setError(err instanceof Error ? err.message : 'Failed to import components');
       }
     };
-    fetchComponents();
-  }, []);
+    reader.readAsText(file);
+  };
+
+  useEffect(() => {
+  const fetchComponents = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_BASE}/components`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch components');
+      }
+      const data = await response.json();
+      if (data.success) {
+        setBackendComponents(data.components || []);
+      } else {
+        throw new Error(data.error || 'Invalid response format');
+      }
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch components');
+      setBackendComponents([]); // Reset to empty array on error
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchComponents();
+}, []); 
 
   const detectCategory = (title: string) => {
     const lower = title.toLowerCase();
@@ -214,6 +294,49 @@ const handleAddOrUpdateComponent = async () => {
     }
   };
 
+  const handleExportClick = () => {
+  exportComponents();
+  // Close all other sections
+  setShowLiveSearch(false);
+  setShowAddForm(false);
+  setShowManualForm(false);
+};
+
+const handleImportClick = () => {
+  // The actual import happens in the file input onChange
+  // Just close other sections here
+  setShowLiveSearch(false);
+  setShowAddForm(false);
+  setShowManualForm(false);
+};
+
+const toggleLiveSearch = () => {
+  setShowLiveSearch(!showLiveSearch);
+  // Close other sections when opening live search
+  if (!showLiveSearch) {
+    setShowAddForm(false);
+    setShowManualForm(false);
+  }
+};
+
+const toggleCatalog = () => {
+  setShowAddForm(!showAddForm);
+  // Close other sections when opening catalog
+  if (!showAddForm) {
+    setShowLiveSearch(false);
+    setShowManualForm(false);
+  }
+};
+
+const toggleManualForm = () => {
+  setShowManualForm(!showManualForm);
+  // Close other sections when opening manual form
+  if (!showManualForm) {
+    setShowLiveSearch(false);
+    setShowAddForm(false);
+  }
+};
+
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
       {error && (
@@ -229,39 +352,58 @@ const handleAddOrUpdateComponent = async () => {
       )}
 
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-green-100 rounded-lg">
-            <Package className="w-5 h-5 text-green-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-800">Components Selection</h2>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowLiveSearch(!showLiveSearch)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-          >
-            <Globe className="w-4 h-4" />
-            Live Search
-          </button>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Browse Catalog
-          </button>
-          <button
-            onClick={() => {
-              setEditingCatalogComponentId(null);
-              setShowManualForm(!showManualForm);
-            }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Custom Component
-          </button>
-        </div>
-      </div>
+  <div className="flex items-center gap-3">
+    <div className="p-2 bg-green-100 rounded-lg">
+      <Package className="w-5 h-5 text-green-600" />
+    </div>
+    <h2 className="text-xl font-semibold text-gray-800">Components Selection</h2>
+  </div>
+  <div className="flex gap-1">
+  <button
+    onClick={handleExportClick}
+    className="p-2 bg-yellow-600 text-white rounded-full hover:bg-yellow-700 transition-colors flex items-center justify-center"
+    title="Export components"
+  >
+    <Download className="w-4 h-4" />
+  </button>
+  
+  <label className="p-2 bg-orange-600 text-white rounded-full hover:bg-orange-700 transition-colors flex items-center justify-center cursor-pointer"
+    title="Import components">
+    <Upload className="w-4 h-4" />
+    <input 
+      type="file" 
+      accept=".json" 
+      onChange={importComponents}
+      onClick={handleImportClick}
+      className="hidden"
+    />
+  </label>
+
+  <button
+    onClick={toggleLiveSearch}
+    className={`p-2 ${showLiveSearch ? 'bg-purple-700' : 'bg-purple-600'} text-white rounded-full hover:bg-purple-700 transition-colors flex items-center justify-center`}
+    title="Live search"
+  >
+    <Globe className="w-4 h-4" />
+  </button>
+
+  <button
+    onClick={toggleCatalog}
+    className={`p-2 ${showAddForm ? 'bg-blue-700' : 'bg-blue-600'} text-white rounded-full hover:bg-blue-700 transition-colors flex items-center justify-center`}
+    title="Browse catalog"
+  >
+    <Search className="w-4 h-4" />
+  </button>
+
+  <button
+    onClick={toggleManualForm}
+    className={`p-2 ${showManualForm ? 'bg-green-700' : 'bg-green-600'} text-white rounded-full hover:bg-green-700 transition-colors flex items-center justify-center`}
+    title="Add component"
+  >
+    <Plus className="w-4 h-4" />
+  </button>
+</div>
+</div>
 
       {/* Selected Components */}
       {components.length > 0 && (
@@ -372,8 +514,6 @@ const handleAddOrUpdateComponent = async () => {
           />
         </div>
       )}
-      console.log('showLiveSearch:', showLiveSearch);
-
 
       {/* Component Form (Add/Edit) */}
       {showManualForm && (

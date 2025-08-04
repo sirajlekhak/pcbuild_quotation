@@ -1,12 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Monitor, Cpu, Zap, Globe } from 'lucide-react';
 import CustomerForm from './components/CustomerForm';
 import ComponentSelector from './components/ComponentSelector';
 import QuotationSettings from './components/QuotationSettings';
 import QuotationPreview from './components/QuotationPreview';
-import { Component, Customer } from './types';
+import { Component, Customer, CompanyInfo } from './types';
 import { generatePDF, printQuotation, shareQuotation } from './utils/pdfGenerator';
-import logo from './assets/logo.jpg'; // Adjust the path to your logo
+import logo from './assets/logo.jpg';
+
+// Default company information
+const DEFAULT_COMPANY_INFO: CompanyInfo = {
+  name: 'IT SERVICE WORLD',
+  address: 'Siliguri, West Bengal, India',
+  phone: '+91 XXXXX XXXXX',
+  email: 'info@itserviceworld.com',
+  gstin: 'XXXXXXXXXXXXXXX',
+  website: 'www.itserviceworld.com',
+  logo: logo
+};
 
 function App() {
   const [customer, setCustomer] = useState<Customer>({
@@ -25,7 +36,83 @@ function App() {
 • Installation and setup service available
 • Payment terms: 50% advance, 50% on delivery`);
 
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load company info on component mount
+  useEffect(() => {
+    const loadCompanyInfo = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/company');
+        if (response.ok) {
+          const data = await response.json();
+          // If logo is not provided in the response, keep the default logo
+          setCompanyInfo({
+            ...data,
+            logo: data.logo || DEFAULT_COMPANY_INFO.logo
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load company info:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadCompanyInfo();
+  }, []);
+
   const isQuotationReady = customer.name && customer.phone && components.length > 0;
+
+  // Enhanced PDF generation with company info
+  const handleGeneratePDF = async () => {
+    try {
+      setIsLoading(true);
+      await generatePDF({
+        customer,
+        components,
+        gstRate,
+        discountRate,
+        notes,
+        companyInfo
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Enhanced print function with company info
+  const handlePrintQuotation = () => {
+    printQuotation({
+      customer,
+      components,
+      gstRate,
+      discountRate,
+      notes,
+      companyInfo
+    });
+  };
+
+  // Enhanced share function with company info
+  const handleShareQuotation = async () => {
+    try {
+      setIsLoading(true);
+      await shareQuotation({
+        customer,
+        components,
+        gstRate,
+        discountRate,
+        notes,
+        companyInfo
+      });
+    } catch (error) {
+      console.error('Error sharing quotation:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -37,15 +124,13 @@ function App() {
               <div className="flex items-center gap-4">
                 {/* Company Logo */}
                 <img 
-                  src={logo} 
-                  alt="IT SERVICE WORLD Logo" 
+                  src={companyInfo.logo} 
+                  alt={`${companyInfo.name} Logo`} 
                   className="h-16 w-auto object-contain"
                 />
-                {/* Gradient Icon (optional - you can remove this if you don't want both) */}
-                
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">IT SERVICE WORLD</h1>
+                <h1 className="text-3xl font-bold text-gray-900">{companyInfo.name}</h1>
                 <p className="text-gray-600">PC Build Quotation Generator</p>
               </div>
             </div>
@@ -67,7 +152,6 @@ function App() {
         </div>
       </header>
 
-      {/* Rest of your component remains the same */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left Column - Forms */}
@@ -81,6 +165,7 @@ function App() {
               onGstRateChange={setGstRate}
               onDiscountRateChange={setDiscountRate}
               onNotesChange={setNotes}
+              onCompanyInfoChange={setCompanyInfo}
             />
           </div>
 
@@ -93,9 +178,11 @@ function App() {
                 gstRate={gstRate}
                 discountRate={discountRate}
                 notes={notes}
-                onGeneratePDF={generatePDF}
-                onPrint={printQuotation}
-                onShare={shareQuotation}
+                onGeneratePDF={handleGeneratePDF}
+                onPrint={handlePrintQuotation}
+                onShare={handleShareQuotation}
+                isLoading={isLoading}
+                companyInfo={companyInfo}
               />
             ) : (
               <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100 text-center">
@@ -130,7 +217,7 @@ function App() {
       <footer className="bg-gray-900 text-white py-8 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h3 className="text-xl font-semibold mb-2">IT SERVICE WORLD</h3>
+            <h3 className="text-xl font-semibold mb-2">{companyInfo.name}</h3>
             <p className="text-gray-400 mb-2">
               Your trusted partner for PC builds and IT services
             </p>
@@ -146,7 +233,7 @@ function App() {
               </a>
             </p>
             <div className="flex justify-center gap-8 text-sm text-gray-400 mt-4">
-              <span>Siliguri, West Bengal</span>
+              <span>{companyInfo.address}</span>
               <span>•</span>
               <span>Professional Service</span>
               <span>•</span>

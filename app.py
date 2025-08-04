@@ -19,6 +19,12 @@ from backend.scrapers.amazon import scrape_amazon
 from backend.scrapers.flipkart import scrape_flipkart
 from backend.scrapers.mdcomputers import scrape_mdcomputers
 
+
+# Add this at the top of your Flask app
+DATA_DIR = Path(__file__).parent / 'data'
+DATA_DIR.mkdir(exist_ok=True)
+COMPANY_INFO_PATH = DATA_DIR / 'companyinfo.json'
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -305,6 +311,103 @@ def health_check():
         "timestamp": datetime.now().isoformat()
     })
 
+@app.route('/api/components/import', methods=['POST'])
+def import_components():
+    try:
+        data = request.get_json()
+        if not data or 'components' not in data:
+            return jsonify({"success": False, "error": "No components data provided"}), 400
+            
+        # Basic validation
+        valid_components = []
+        for comp in data['components']:
+            if all(key in comp for key in ['name', 'brand', 'price', 'category']):
+                try:
+                    # Create component with default values for missing fields
+                    component_data = {
+                        'name': comp['name'],
+                        'brand': comp['brand'],
+                        'price': float(comp['price']),
+                        'category': comp['category'],
+                        'warranty': comp.get('warranty', ''),
+                        'id': comp.get('id', str(uuid4())),
+                        'created_at': comp.get('created_at', datetime.now().isoformat())
+                    }
+                    valid_components.append(component_data)
+                except (ValueError, TypeError):
+                    continue
+        
+        # Save the validated components
+        save_components(valid_components)
+        
+        return jsonify({
+            "success": True,
+            "count": len(valid_components),
+            "message": f"Imported {len(valid_components)} components"
+        })
+    except Exception as e:
+        logger.error(f"Import error: {str(e)}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+    
+
+DEFAULT_COMPANY_INFO = {
+    "name": "IT SERVICE WORLD",
+    "address": "Siliguri, West Bengal, India",
+    "phone": "+91 XXXXX XXXXX",
+    "email": "info@itserviceworld.com",
+    "gstin": "XXXXXXXXXXXXXXX",
+    "website": "www.itserviceworld.com",
+    "logo": ""
+}
+
+@app.route('/api/company', methods=['GET', 'POST'])
+def handle_company_info():
+    data_dir = Path(__file__).parent / 'data'
+    company_file = data_dir / 'companyinfo.json'
+    
+    try:
+        data_dir.mkdir(exist_ok=True)
+        
+        if request.method == 'GET':
+            if not company_file.exists():
+                # Create file with default data if doesn't exist
+                with open(company_file, 'w') as f:
+                    json.dump(DEFAULT_COMPANY_INFO, f)
+                return jsonify(DEFAULT_COMPANY_INFO)
+                
+            with open(company_file, 'r') as f:
+                return jsonify(json.load(f))
+                
+        elif request.method == 'POST':
+            data = request.get_json()
+            
+            # Validate required fields
+            if not data.get('name') or not data.get('gstin'):
+                return jsonify({
+                    "error": "Company name and GSTIN are required",
+                    "received": data
+                }), 400
+                
+            # Save to file
+            with open(company_file, 'w') as f:
+                json.dump(data, f, indent=2)
+                
+            return jsonify({
+                "success": True,
+                "message": "Company info saved",
+                "data": data
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "path": str(company_file)
+        }), 500
+      # In your Flask app (app.py), add this debug line:
+print("Absolute path to companyinfo.json:", str(Path(__file__).parent / 'data' / 'companyinfo.json'))   
 if __name__ == "__main__":
     # Verify ChromeDriver can be initialized at startup
     try:
