@@ -2,21 +2,118 @@
   {
     "id": "a9e1cc74-8b96-43b4-a360-a98d3bd27e7f",
     "category": "GPU",
-    "name": "AMD 9060X",
+    "name": "AMD Radeon RX 7900 XT",
     "brand": "AMD",
-    "price": 40189.0,
-    "warranty": "3 YEARS",
-    "created_at": "2025-08-03T21:24:34.951448",
-    "updated_at": "2025-08-04T19:44:03.277255"
+    "price": 899.99,
+    "warranty": "3 years",
+    "link": "https://www.amd.com/en/graphics/radeon-rx-7900-series"
   },
   {
-    "id": "1688ff03-5250-4028-8838-5cdc6df06b76",
+    "id": "b8f2dd85-9ca7-54c5-b470-b99e4ce38e8g",
     "category": "CPU",
-    "name": "INTEL I5 10TH",
-    "brand": "535",
-    "price": 332.0,
-    "warranty": "44",
-    "created_at": "2025-08-04T17:51:26.099518",
-    "updated_at": "2025-08-04T19:44:03.277270"
+    "name": "Intel Core i9-13900K",
+    "brand": "Intel",
+    "price": 589.99,
+    "warranty": "3 years",
+    "link": "https://www.intel.com/content/www/us/en/products/sku/230496/intel-core-i913900k-processor-36m-cache-up-to-5-80-ghz/specifications.html"
+  },
+  {
+    "id": "c7e3ee96-8db8-65d6-c581-caaf5df49f9h",
+    "category": "RAM",
+    "name": "Corsair Vengeance RGB 32GB (2x16GB) DDR5 5600MHz",
+    "brand": "Corsair",
+    "price": 149.99,
+    "warranty": "Lifetime",
+    "link": "https://www.corsair.com/us/en/p/memory/cmk32gx5m2b5600c36/vengeance-32gb-2x16gb-ddr5-dram-5600mt-s-c36-memory-kit-black-cmk32gx5m2b5600c36"
+  },
+  {
+    "id": "d6d4ff07-7ec9-76e7-d692-dbb06ce5a0fi",
+    "category": "Motherboard",
+    "name": "ASUS ROG Strix Z790-E Gaming WiFi",
+    "brand": "ASUS",
+    "price": 449.99,
+    "warranty": "3 years",
+    "link": "https://www.asus.com/us/motherboards-components/motherboards/rog-strix/rog-strix-z790-e-gaming-wifi/"
+  },
+  {
+    "id": "e5c5e018-6fda-87f8-e7a3-ecc17df4b1gj",
+    "category": "Storage",
+    "name": "Samsung 980 Pro 1TB NVMe SSD",
+    "brand": "Samsung",
+    "price": 129.99,
+    "warranty": "5 years",
+    "link": "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/980-pro-pcie-4-0-nvme-ssd-1tb-mz-v8p1t0b-am/"
+  },
+  {
+    "id": "f4b6d129-5eeb-98g9-f8b4-fdd28e3c2ahk",
+    "category": "PSU",
+    "name": "Corsair RM850x (2021) 850W 80+ Gold",
+    "brand": "Corsair",
+    "price": 149.99,
+    "warranty": "10 years",
+    "link": "https://www.corsair.com/us/en/p/psu/cp-9020200-na/rmx-series-rm850x-850-watt-80-plus-gold-certified-fully-modular-psu-cp-9020200-na"
+  },
+  {
+    "id": "g3a7e23a-4dfc-a9ha-g9c5-gee39f4d3bil",
+    "category": "Case",
+    "name": "Lian Li PC-O11 Dynamic",
+    "brand": "Lian Li",
+    "price": 159.99,
+    "warranty": "2 years",
+    "link": "https://lian-li.com/product/pc-o11dynamic/"
+  },
+  {
+    "id": "h2b8f34b-3ced-baib-had6-hff0a5e4cjm",
+    "category": "Cooling",
+    "name": "Noctua NH-D15 chromax.black",
+    "brand": "Noctua",
+    "price": 109.95,
+    "warranty": "6 years",
+    "link": "https://noctua.at/en/nh-d15-chromax-black"
+  },
+  {
+    "id": "i1c9g45c-2bde-cbjc-ibe7-igg1b6f5dkn",
+    "category": "Monitor",
+    "name": "LG UltraGear 27GN950-B",
+    "brand": "LG",
+    "price": 799.99,
+    "warranty": "3 years",
+    "link": "https://www.lg.com/us/monitors/lg-27gn950-b-gaming-monitor"
+  },
+  {
+    "id": "j0d0h56d-1acf-dckd-jcf8-jhh2c7g6elo",
+    "category": "Accessories",
+    "name": "Logitech G Pro X Mechanical Keyboard",
+    "brand": "Logitech",
+    "price": 199.99,
+    "warranty": "2 years",
+    "link": "https://www.logitechg.com/en-us/products/keyboards/pro-x-keyboard.html"
+  },
+  {
+    "id": "k9e1i67e-0bge-edle-kdg9-kii3d8h7fmp",
+    "category": "GPU",
+    "name": "NVIDIA GeForce RTX 4080",
+    "brand": "NVIDIA",
+    "price": 1199.99,
+    "warranty": "3 years",
+    "link": "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4080/"
+  },
+  {
+    "id": "l8f2j78f-9ahf-feof-leha-ljj4e9i8gnq",
+    "category": "CPU",
+    "name": "AMD Ryzen 9 7950X",
+    "brand": "AMD",
+    "price": 699.99,
+    "warranty": "3 years",
+    "link": "https://www.amd.com/en/products/cpu/amd-ryzen-9-7950x"
+  },
+  {
+    "id": "m7g3k89g-8big-gfpg-mfib-mkk5f0j9hor",
+    "category": "Storage",
+    "name": "Western Digital Black SN850X 2TB",
+    "brand": "WD",
+    "price": 249.99,
+    "warranty": "5 years",
+    "link": "https://www.westerndigital.com/products/internal-drives/wd-black-sn850x-nvme-ssd"
   }
 ]
