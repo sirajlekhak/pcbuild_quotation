@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Package, Trash2, Edit3, ExternalLink, Globe, Download, Upload } from 'lucide-react';import { Component } from '../types';
+import { Plus, Search, Package, Trash2, Edit3, ExternalLink, Globe, Download, Upload } from 'lucide-react';
+import { Component } from '../types';
 import ProductSearch from './ProductSearch';
 
 interface ComponentSelectorProps {
@@ -7,9 +8,21 @@ interface ComponentSelectorProps {
   onChange: (components: Component[]) => void;
 }
 
+interface Component {
+  id: string;
+  name: string;
+  brand?: string;
+  price?: number;
+  quantity?: number;
+  category?: string;
+  warranty?: string;
+  link?: string;
+  model?: string;
+}
+
 const API_BASE = 'http://localhost:5001/api';
 
-export default function ComponentSelector({ components, onChange }: ComponentSelectorProps) {
+export default function ComponentSelector({ components = [], onChange }: ComponentSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -34,7 +47,8 @@ export default function ComponentSelector({ components, onChange }: ComponentSel
   const [error, setError] = useState('');
 
   const categories = ['All', 'CPU', 'GPU', 'RAM', 'Motherboard', 'Storage', 'PSU', 'Case', 'Cooling', 'Monitor', 'Accessories', 'Other'];
-const exportComponents = async () => {
+
+  const exportComponents = async () => {
     try {
       const response = await fetch(`${API_BASE}/components`);
       if (!response.ok) throw new Error('Failed to fetch components');
@@ -71,7 +85,6 @@ const exportComponents = async () => {
           throw new Error('Invalid file format - expected array of components');
         }
 
-        // Basic validation
         const validComponents = parsedData.filter(comp => 
           comp.name && comp.brand && comp.price !== undefined && comp.category
         );
@@ -80,7 +93,6 @@ const exportComponents = async () => {
           console.warn('Some components were invalid and were filtered out');
         }
 
-        // Send to backend
         const response = await fetch(`${API_BASE}/components/import`, {
           method: 'POST',
           headers: {
@@ -93,7 +105,6 @@ const exportComponents = async () => {
           throw new Error('Failed to save imported components');
         }
 
-        // Refresh the component list
         const fetchResponse = await fetch(`${API_BASE}/components`);
         const data = await fetchResponse.json();
         setBackendComponents(data.components || []);
@@ -107,33 +118,34 @@ const exportComponents = async () => {
   };
 
   useEffect(() => {
-  const fetchComponents = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const response = await fetch(`${API_BASE}/components`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to fetch components');
+    const fetchComponents = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const response = await fetch(`${API_BASE}/components`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to fetch components');
+        }
+        const data = await response.json();
+        if (data.success) {
+          setBackendComponents(data.components || []);
+        } else {
+          throw new Error(data.error || 'Invalid response format');
+        }
+      } catch (err) {
+        console.error('Fetch error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch components');
+        setBackendComponents([]);
+      } finally {
+        setLoading(false);
       }
-      const data = await response.json();
-      if (data.success) {
-        setBackendComponents(data.components || []);
-      } else {
-        throw new Error(data.error || 'Invalid response format');
-      }
-    } catch (err) {
-      console.error('Fetch error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch components');
-      setBackendComponents([]); // Reset to empty array on error
-    } finally {
-      setLoading(false);
-    }
-  };
-  fetchComponents();
-}, []); 
+    };
+    fetchComponents();
+  }, []); 
 
-  const detectCategory = (title: string) => {
+  const detectCategory = (title: string | undefined | null) => {
+    if (!title) return 'Other';
     const lower = title.toLowerCase();
     if (lower.match(/\b(i5|i7|i9|ryzen|core|pentium|celeron|xeon)\b/)) return 'CPU';
     if (lower.match(/\b(rtx|gtx|radeon|gpu|graphics)\b/)) return 'GPU';
@@ -148,31 +160,50 @@ const exportComponents = async () => {
     return 'Other';
   };
 
- const filteredSampleComponents = useMemo(() => {
-  return (Array.isArray(backendComponents) ? backendComponents : []).filter(component => {
-    const matchesSearch = component.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      component.brand.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || component.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-}, [searchTerm, selectedCategory, backendComponents]);
+  const filteredSampleComponents = useMemo(() => {
+    return (Array.isArray(backendComponents) ? backendComponents : []).filter(component => {
+      const name = component?.name || '';
+      const brand = component?.brand || '';
+      const category = component?.category || '';
 
-  const addComponent = (componentData: Component) => {
-    const newComponent: Component = {
-      ...componentData,
-      id: Date.now().toString(),
-      quantity: 1,
-      category: componentData.category || detectCategory(componentData.name)
-    };
-    onChange([...components, newComponent]);
+      const matchesSearch = 
+        name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        brand.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory = 
+        selectedCategory === 'All' || category === selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [searchTerm, selectedCategory, backendComponents]);
+
+const addComponent = (componentData: Component) => {
+  // Validate required fields
+  if (!componentData.name?.trim()) {
+    setError('Component name cannot be empty');
+    return;
+  }
+  if (componentData.price === undefined || componentData.price <= 0) {
+    setError('Price must be greater than 0');
+    return;
+  }
+
+  const newComponent: Component = {
+    ...componentData,
+    id: Date.now().toString(),
+    quantity: componentData.quantity || 1,
+    price: componentData.price,
+    category: componentData.category || detectCategory(componentData.name)
   };
+  onChange([...components, newComponent]);
+};
 
   const handleEdit = (component: Component) => {
     setEditingComponentId(component.id);
     setEditBuffer({
       name: component.name,
-      price: component.price.toString(),
-      quantity: component.quantity.toString()
+      price: component.price?.toString() || '0',
+      quantity: component.quantity?.toString() || '1'
     });
   };
 
@@ -194,78 +225,82 @@ const exportComponents = async () => {
   };
 
   const calculateComponentTotal = (component: Component) => {
-    return component.price * component.quantity;
+    return (component.price || 0) * (component.quantity || 1);
   };
 
-const handleAddOrUpdateComponent = async () => {
-  try {
-    setLoading(true);
-    setError('');
+  const handleAddOrUpdateComponent = async () => {
+    try {
+      setLoading(true);
+      setError('');
 
-    // Validate required fields
-    if (!newComponent.name || !newComponent.brand || !newComponent.price) {
-      throw new Error('Name, brand, and price are required');
+      if (!newComponent.name?.trim()) {
+      throw new Error('Component name is required');
+    }
+    if (!newComponent.brand?.trim()) {
+      throw new Error('Brand is required');
+    }
+    if (newComponent.price === undefined || newComponent.price <= 0) {
+      throw new Error('Valid price is required');
     }
 
-    let response;
-    const url = editingCatalogComponentId 
-      ? `${API_BASE}/components/${editingCatalogComponentId}`
-      : `${API_BASE}/components`;
+      let response;
+      const url = editingCatalogComponentId 
+        ? `${API_BASE}/components/${editingCatalogComponentId}`
+        : `${API_BASE}/components`;
 
-    const method = editingCatalogComponentId ? 'PUT' : 'POST';
-    
-    response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        category: newComponent.category,
-        name: newComponent.name,
-        brand: newComponent.brand,
-        price: newComponent.price,
-        warranty: newComponent.warranty || ''
-      }),
-    });
+      const method = editingCatalogComponentId ? 'PUT' : 'POST';
+      
+      response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          category: newComponent.category,
+          name: newComponent.name,
+          brand: newComponent.brand,
+          price: newComponent.price,
+          warranty: newComponent.warranty || ''
+        }),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Request failed');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Request failed');
+      }
+
+      const savedComponent = await response.json();
+
+      if (editingCatalogComponentId) {
+        setBackendComponents(backendComponents.map(comp => 
+          comp.id === editingCatalogComponentId ? savedComponent : comp
+        ));
+      } else {
+        const componentWithQuantity = {
+          ...savedComponent,
+          quantity: 1,
+          category: savedComponent.category || detectCategory(savedComponent.name)
+        };
+        onChange([...components, componentWithQuantity]);
+        setBackendComponents([...backendComponents, savedComponent]);
+      }
+
+      setNewComponent({
+        category: 'CPU',
+        name: '',
+        brand: '',
+        price: 0,
+        warranty: '',
+      });
+      setEditingCatalogComponentId(null);
+      setShowManualForm(false);
+    } catch (err) {
+      console.error('Error saving component:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save component');
+    } finally {
+      setLoading(false);
     }
-
-    const savedComponent = await response.json();
-
-    if (editingCatalogComponentId) {
-      setBackendComponents(backendComponents.map(comp => 
-        comp.id === editingCatalogComponentId ? savedComponent : comp
-      ));
-    } else {
-      const componentWithQuantity = {
-        ...savedComponent,
-        quantity: 1,
-        category: savedComponent.category || detectCategory(savedComponent.name)
-      };
-      onChange([...components, componentWithQuantity]);
-      setBackendComponents([...backendComponents, savedComponent]);
-    }
-
-    // Reset form
-    setNewComponent({
-      category: 'CPU',
-      name: '',
-      brand: '',
-      price: 0,
-      warranty: '',
-    });
-    setEditingCatalogComponentId(null);
-    setShowManualForm(false);
-  } catch (err) {
-    console.error('Error saving component:', err);
-    setError(err instanceof Error ? err.message : 'Failed to save component');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleEditFromCatalog = (component: Component) => {
     setEditingCatalogComponentId(component.id);
@@ -273,7 +308,7 @@ const handleAddOrUpdateComponent = async () => {
       category: component.category,
       name: component.name,
       brand: component.brand,
-      price: component.price,
+      price: component.price || 0,
       warranty: component.warranty || ''
     });
     setShowManualForm(true);
@@ -295,47 +330,41 @@ const handleAddOrUpdateComponent = async () => {
   };
 
   const handleExportClick = () => {
-  exportComponents();
-  // Close all other sections
-  setShowLiveSearch(false);
-  setShowAddForm(false);
-  setShowManualForm(false);
-};
-
-const handleImportClick = () => {
-  // The actual import happens in the file input onChange
-  // Just close other sections here
-  setShowLiveSearch(false);
-  setShowAddForm(false);
-  setShowManualForm(false);
-};
-
-const toggleLiveSearch = () => {
-  setShowLiveSearch(!showLiveSearch);
-  // Close other sections when opening live search
-  if (!showLiveSearch) {
-    setShowAddForm(false);
-    setShowManualForm(false);
-  }
-};
-
-const toggleCatalog = () => {
-  setShowAddForm(!showAddForm);
-  // Close other sections when opening catalog
-  if (!showAddForm) {
-    setShowLiveSearch(false);
-    setShowManualForm(false);
-  }
-};
-
-const toggleManualForm = () => {
-  setShowManualForm(!showManualForm);
-  // Close other sections when opening manual form
-  if (!showManualForm) {
+    exportComponents();
     setShowLiveSearch(false);
     setShowAddForm(false);
-  }
-};
+    setShowManualForm(false);
+  };
+
+  const handleImportClick = () => {
+    setShowLiveSearch(false);
+    setShowAddForm(false);
+    setShowManualForm(false);
+  };
+
+  const toggleLiveSearch = () => {
+    setShowLiveSearch(!showLiveSearch);
+    if (!showLiveSearch) {
+      setShowAddForm(false);
+      setShowManualForm(false);
+    }
+  };
+
+  const toggleCatalog = () => {
+    setShowAddForm(!showAddForm);
+    if (!showAddForm) {
+      setShowLiveSearch(false);
+      setShowManualForm(false);
+    }
+  };
+
+  const toggleManualForm = () => {
+    setShowManualForm(!showManualForm);
+    if (!showManualForm) {
+      setShowLiveSearch(false);
+      setShowAddForm(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
@@ -352,58 +381,58 @@ const toggleManualForm = () => {
       )}
 
       <div className="flex items-center justify-between mb-6">
-  <div className="flex items-center gap-3">
-    <div className="p-2 bg-green-100 rounded-lg">
-      <Package className="w-5 h-5 text-green-600" />
-    </div>
-    <h2 className="text-xl font-semibold text-gray-800">Components Selection</h2>
-  </div>
-  <div className="flex gap-1">
-  <button
-    onClick={handleExportClick}
-    className="p-2 bg-yellow-600 text-white rounded-full hover:bg-yellow-700 transition-colors flex items-center justify-center"
-    title="Export components"
-  >
-    <Download className="w-4 h-4" />
-  </button>
-  
-  <label className="p-2 bg-orange-600 text-white rounded-full hover:bg-orange-700 transition-colors flex items-center justify-center cursor-pointer"
-    title="Import components">
-    <Upload className="w-4 h-4" />
-    <input 
-      type="file" 
-      accept=".json" 
-      onChange={importComponents}
-      onClick={handleImportClick}
-      className="hidden"
-    />
-  </label>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-green-100 rounded-lg">
+            <Package className="w-5 h-5 text-green-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800">Components Selection</h2>
+        </div>
+        <div className="flex gap-1">
+          <button
+            onClick={handleExportClick}
+            className="p-2 bg-yellow-600 text-white rounded-full hover:bg-yellow-700 transition-colors flex items-center justify-center"
+            title="Export components"
+          >
+            <Download className="w-4 h-4" />
+          </button>
+          
+          <label className="p-2 bg-orange-600 text-white rounded-full hover:bg-orange-700 transition-colors flex items-center justify-center cursor-pointer"
+            title="Import components">
+            <Upload className="w-4 h-4" />
+            <input 
+              type="file" 
+              accept=".json" 
+              onChange={importComponents}
+              onClick={handleImportClick}
+              className="hidden"
+            />
+          </label>
 
-  <button
-    onClick={toggleLiveSearch}
-    className={`p-2 ${showLiveSearch ? 'bg-purple-700' : 'bg-purple-600'} text-white rounded-full hover:bg-purple-700 transition-colors flex items-center justify-center`}
-    title="Live search"
-  >
-    <Globe className="w-4 h-4" />
-  </button>
+          <button
+            onClick={toggleLiveSearch}
+            className={`p-2 ${showLiveSearch ? 'bg-purple-700' : 'bg-purple-600'} text-white rounded-full hover:bg-purple-700 transition-colors flex items-center justify-center`}
+            title="Live search"
+          >
+            <Globe className="w-4 h-4" />
+          </button>
 
-  <button
-    onClick={toggleCatalog}
-    className={`p-2 ${showAddForm ? 'bg-blue-700' : 'bg-blue-600'} text-white rounded-full hover:bg-blue-700 transition-colors flex items-center justify-center`}
-    title="Browse catalog"
-  >
-    <Search className="w-4 h-4" />
-  </button>
+          <button
+            onClick={toggleCatalog}
+            className={`p-2 ${showAddForm ? 'bg-blue-700' : 'bg-blue-600'} text-white rounded-full hover:bg-blue-700 transition-colors flex items-center justify-center`}
+            title="Browse catalog"
+          >
+            <Search className="w-4 h-4" />
+          </button>
 
-  <button
-    onClick={toggleManualForm}
-    className={`p-2 ${showManualForm ? 'bg-green-700' : 'bg-green-600'} text-white rounded-full hover:bg-green-700 transition-colors flex items-center justify-center`}
-    title="Add component"
-  >
-    <Plus className="w-4 h-4" />
-  </button>
-</div>
-</div>
+          <button
+            onClick={toggleManualForm}
+            className={`p-2 ${showManualForm ? 'bg-green-700' : 'bg-green-600'} text-white rounded-full hover:bg-green-700 transition-colors flex items-center justify-center`}
+            title="Add component"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
 
       {/* Selected Components */}
       {components.length > 0 && (
@@ -411,7 +440,7 @@ const toggleManualForm = () => {
           <h3 className="text-lg font-medium text-gray-800 mb-4">Selected Components</h3>
           <div className="space-y-3">
             {components.map((component) => (
-              <div key={component.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div key={`selected-${component.id}`} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 {editingComponentId === component.id ? (
                   <div className="grid md:grid-cols-4 gap-3">
                     <input
@@ -471,7 +500,7 @@ const toggleManualForm = () => {
                         )}
                       </div>
                       <div className="text-sm text-gray-600 mt-1">
-                        {component.brand} • ₹{component.price.toLocaleString('en-IN')} × {component.quantity} = ₹{calculateComponentTotal(component).toLocaleString('en-IN')}
+                        {component.brand} • ₹{(component.price || 0).toLocaleString('en-IN')} × {component.quantity} = ₹{(calculateComponentTotal(component) || 0).toLocaleString('en-IN')}
                         {component.warranty && <span className="ml-2">• Warranty: {component.warranty}</span>}
                       </div>
                     </div>
@@ -502,6 +531,15 @@ const toggleManualForm = () => {
         <div className="mb-6">
           <ProductSearch 
             onAddComponent={(componentData) => {
+                        // Validate before adding
+          if (!componentData.name?.trim()) {
+            setError('Component name is required');
+            return;
+          }
+          if (componentData.price === undefined || componentData.price <= 0) {
+            setError('Price must be greater than 0');
+            return;
+          }
               const newComponent: Component = {
                 ...componentData,
                 id: Date.now().toString(),
@@ -515,156 +553,204 @@ const toggleManualForm = () => {
         </div>
       )}
 
-      {/* Component Form (Add/Edit) */}
-      {showManualForm && (
-        <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-800 mb-4">
-            {editingCatalogComponentId ? 'Edit Component' : 'Add Custom Component'}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-              <select
-                value={newComponent.category}
-                onChange={(e) => setNewComponent({...newComponent, category: e.target.value as any})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              >
-                {categories.filter(c => c !== 'All').map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
+      {components.filter(comp => comp.name?.trim() && comp.price && comp.price > 0).length > 0 && (
+    <div className="mb-6">
+      <h3 className="text-lg font-medium text-gray-800 mb-4">Selected Components</h3>
+      <div className="space-y-3">
+        {components
+          .filter(comp => comp.name?.trim() && comp.price && comp.price > 0)
+          .map((component) => (
+            <div key={`selected-${component.id}`} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              {/* ... rest of the component rendering ... */}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-              <input
-                type="text"
-                value={newComponent.name}
-                onChange={(e) => setNewComponent({...newComponent, name: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g. AMD Ryzen 5 5600X"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
-              <input
-                type="text"
-                value={newComponent.brand}
-                onChange={(e) => setNewComponent({...newComponent, brand: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g. AMD"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
-              <input
-                type="number"
-                value={newComponent.price}
-                onChange={(e) => setNewComponent({...newComponent, price: Number(e.target.value)})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g. 15999"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Warranty</label>
-              <input
-                type="text"
-                value={newComponent.warranty}
-                onChange={(e) => setNewComponent({...newComponent, warranty: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g. 3 years"
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <button
-              onClick={handleAddOrUpdateComponent}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-            >
-              {editingCatalogComponentId ? 'Update Component' : 'Add Component'}
-            </button>
-            <button
-              onClick={() => {
-                setShowManualForm(false);
-                setEditingCatalogComponentId(null);
-              }}
-              className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
+          ))
+        }
+      </div>
+    </div>
+  )}
+
+{/* Component Form (Add/Edit) */}
+{showManualForm && (
+  <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+    <h3 className="text-lg font-medium text-gray-800 mb-4">
+      {editingCatalogComponentId ? 'Edit Component' : 'Add Custom Component'}
+    </h3>
+    <form onSubmit={(e) => {
+      e.preventDefault();
+      handleAddOrUpdateComponent();
+    }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Category*</label>
+          <select
+            value={newComponent.category}
+            onChange={(e) => setNewComponent({...newComponent, category: e.target.value as any})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+            required
+          >
+            {categories.filter(c => c !== 'All').map(category => (
+              <option key={`category-${category}`} value={category}>{category}</option>
+            ))}
+          </select>
         </div>
-      )}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Name*</label>
+          <input
+            type="text"
+            value={newComponent.name}
+            onChange={(e) => setNewComponent({...newComponent, name: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g. AMD Ryzen 5 5600X"
+            required
+            minLength={2}
+          />
+          {!newComponent.name && (
+            <p className="text-red-500 text-xs mt-1">Name is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Brand*</label>
+          <input
+            type="text"
+            value={newComponent.brand}
+            onChange={(e) => setNewComponent({...newComponent, brand: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g. AMD"
+            required
+            minLength={2}
+          />
+          {!newComponent.brand && (
+            <p className="text-red-500 text-xs mt-1">Brand is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)*</label>
+          <input
+            type="number"
+            value={newComponent.price || ''}
+            onChange={(e) => setNewComponent({...newComponent, price: Number(e.target.value)})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g. 15999"
+            min="1"
+            step="1"
+            required
+          />
+          {(newComponent.price === undefined || newComponent.price <= 0) && (
+            <p className="text-red-500 text-xs mt-1">Valid price is required</p>
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Warranty</label>
+          <input
+            type="text"
+            value={newComponent.warranty}
+            onChange={(e) => setNewComponent({...newComponent, warranty: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g. 3 years"
+          />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 mt-4">
+        <button
+          type="submit"
+          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
+          disabled={!newComponent.name || !newComponent.brand || !newComponent.price || newComponent.price <= 0}
+        >
+          {editingCatalogComponentId ? 'Update Component' : 'Add Component'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setShowManualForm(false);
+            setEditingCatalogComponentId(null);
+          }}
+          className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+)}
 
-      {/* Component Catalog */}
-      {showAddForm && (
-        <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-800 mb-4">Browse Component Catalog</h3>
+{/* Component Catalog */}
+{showAddForm && (
+  <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+    <h3 className="text-lg font-medium text-gray-800 mb-4">Browse Component Catalog</h3>
 
-          <div className="flex flex-col md:flex-row gap-4 mb-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Search components..."
-              />
-            </div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
-          </div>
+    <div className="flex flex-col md:flex-row gap-4 mb-4">
+      <div className="flex-1 relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Search components..."
+        />
+      </div>
+      <select
+        value={selectedCategory}
+        onChange={(e) => setSelectedCategory(e.target.value)}
+        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      >
+        {categories.map(category => (
+          <option key={`select-${category}`} value={category}>{category}</option>
+        ))}
+      </select>
+    </div>
 
-          <div className="max-h-64 overflow-y-auto space-y-2">
-            {filteredSampleComponents.map((component) => (
-              <div key={component.id} className="bg-white rounded-lg p-3 border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
-                        {component.category}
-                      </span>
-                      <h4 className="font-medium text-gray-800">{component.name}</h4>
-                    </div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      {component.brand} • ₹{component.price.toLocaleString('en-IN')}
-                      {component.warranty && <span className="ml-2">• {component.warranty} warranty</span>}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => addComponent(component)}
-                      className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Add
-                    </button>
-                    <button
-                      onClick={() => handleEditFromCatalog(component)}
-                      className="p-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteFromCatalog(component.id)}
-                      className="p-1 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+    <div className="max-h-64 overflow-y-auto space-y-2">
+      {filteredSampleComponents
+        .filter(comp => comp.name && comp.price && comp.price > 0)
+        .map((component) => (
+          <div key={`catalog-${component.id}`} className="bg-white rounded-lg p-3 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+                    {component.category}
+                  </span>
+                  <h4 className="font-medium text-gray-800">{component.name}</h4>
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  {component.brand} • ₹{(component.price || 0).toLocaleString('en-IN')}
+                  {component.warranty && <span className="ml-2">• {component.warranty} warranty</span>}
                 </div>
               </div>
-            ))}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (!component.name || !component.price || component.price <= 0) {
+                      setError('Cannot add invalid component');
+                      return;
+                    }
+                    addComponent(component);
+                  }}
+                  className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add
+                </button>
+                <button
+                  onClick={() => handleEditFromCatalog(component)}
+                  className="p-1 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => component.id && handleDeleteFromCatalog(component.id)}
+                  className="p-1 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        ))}
+    </div>
+  </div>
+)}
     </div>
   );
 }

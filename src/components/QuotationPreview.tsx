@@ -170,25 +170,25 @@ export default function QuotationPreview({
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {components.map((component, index) => (
-                    <tr key={component.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-4 py-3 text-sm text-gray-500">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{component.category}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        <div className="font-medium">{component.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {component.brand} {component.model && `• ${component.model}`}
-                          {component.warranty && ` • Warranty: ${component.warranty}`}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 text-center">{component.quantity}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 text-right">
-                        {component.price.toLocaleString('en-IN')}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
-                        {(component.price * component.quantity).toLocaleString('en-IN')}
-                      </td>
-                    </tr>
-                  ))}
+  <tr key={component.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+    <td className="px-4 py-3 text-sm text-gray-500">{index + 1}</td>
+    <td className="px-4 py-3 text-sm font-medium text-gray-900">{component.category || 'N/A'}</td>
+    <td className="px-4 py-3 text-sm text-gray-600">
+      <div className="font-medium">{component.name || 'N/A'}</div>
+      <div className="text-xs text-gray-500">
+        {component.brand || ''} {component.model && `• ${component.model}`}
+        {component.warranty && ` • Warranty: ${component.warranty}`}
+      </div>
+    </td>
+    <td className="px-4 py-3 text-sm text-gray-600 text-center">{component.quantity || 0}</td>
+    <td className="px-4 py-3 text-sm text-gray-600 text-right">
+      {(component.price || 0).toLocaleString('en-IN')}
+    </td>
+    <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
+      {((component.price || 0) * (component.quantity || 0)).toLocaleString('en-IN')}
+    </td>
+  </tr>
+))}
                 </tbody>
               </table>
             </div>

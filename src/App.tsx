@@ -39,28 +39,7 @@ function App() {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load company info on component mount
-  useEffect(() => {
-    const loadCompanyInfo = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch('/api/company');
-        if (response.ok) {
-          const data = await response.json();
-          // If logo is not provided in the response, keep the default logo
-          setCompanyInfo({
-            ...data,
-            logo: data.logo || DEFAULT_COMPANY_INFO.logo
-          });
-        }
-      } catch (error) {
-        console.error('Failed to load company info:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadCompanyInfo();
-  }, []);
+
 
   const isQuotationReady = customer.name && customer.phone && components.length > 0;
 

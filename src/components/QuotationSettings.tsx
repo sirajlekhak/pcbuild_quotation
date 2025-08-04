@@ -35,24 +35,6 @@ export default function QuotationSettings({
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(defaultCompanyInfo);
   const [tempCompanyInfo, setTempCompanyInfo] = useState<CompanyInfo>(defaultCompanyInfo);
 
-  // Load company info on component mount
-  useEffect(() => {
-    const loadCompanyInfo = async () => {
-      try {
-        const response = await fetch('/api/company');
-        if (response.ok) {
-          const data = await response.json();
-          setCompanyInfo(data);
-          setTempCompanyInfo(data);
-          onCompanyInfoChange(data);
-        }
-      } catch (error) {
-        console.error('Failed to load company info:', error);
-      }
-    };
-    loadCompanyInfo();
-  }, []);
-
   const handleCompanyEdit = () => {
     setTempCompanyInfo(companyInfo);
     setShowCompanyModal(true);
