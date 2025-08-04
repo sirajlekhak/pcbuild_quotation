@@ -1,12 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Package, Trash2, Edit3, ExternalLink, Globe, Download, Upload } from 'lucide-react';
-import { Component } from '../types';
+import { Plus, Search, Package, Trash2, Edit3, ExternalLink, Globe, Download, Upload, CheckCircle } from 'lucide-react';
 import ProductSearch from './ProductSearch';
-
-interface ComponentSelectorProps {
-  components: Component[];
-  onChange: (components: Component[]) => void;
-}
 
 interface Component {
   id: string;
@@ -18,6 +12,11 @@ interface Component {
   warranty?: string;
   link?: string;
   model?: string;
+}
+
+interface ComponentSelectorProps {
+  components: Component[];
+  onChange: (components: Component[]) => void;
 }
 
 const API_BASE = 'http://localhost:5001/api';
@@ -45,6 +44,7 @@ export default function ComponentSelector({ components = [], onChange }: Compone
   const [backendComponents, setBackendComponents] = useState<Component[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const categories = ['All', 'CPU', 'GPU', 'RAM', 'Motherboard', 'Storage', 'PSU', 'Case', 'Cooling', 'Monitor', 'Accessories', 'Other'];
 
@@ -105,10 +105,13 @@ export default function ComponentSelector({ components = [], onChange }: Compone
           throw new Error('Failed to save imported components');
         }
 
+        // Refresh the components from the backend
         const fetchResponse = await fetch(`${API_BASE}/components`);
         const data = await fetchResponse.json();
         setBackendComponents(data.components || []);
         
+        setSuccessMessage('Components imported successfully!');
+        setError('');
       } catch (err) {
         console.error('Import failed:', err);
         setError(err instanceof Error ? err.message : 'Failed to import components');
@@ -116,6 +119,15 @@ export default function ComponentSelector({ components = [], onChange }: Compone
     };
     reader.readAsText(file);
   };
+
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   useEffect(() => {
     const fetchComponents = async () => {
@@ -177,26 +189,27 @@ export default function ComponentSelector({ components = [], onChange }: Compone
     });
   }, [searchTerm, selectedCategory, backendComponents]);
 
-const addComponent = (componentData: Component) => {
-  // Validate required fields
-  if (!componentData.name?.trim()) {
-    setError('Component name cannot be empty');
-    return;
-  }
-  if (componentData.price === undefined || componentData.price <= 0) {
-    setError('Price must be greater than 0');
-    return;
-  }
+  const addComponent = (componentData: Component) => {
+    // Validate required fields
+    if (!componentData.name?.trim()) {
+      setError('Component name cannot be empty');
+      return;
+    }
+    if (componentData.price === undefined || componentData.price <= 0) {
+      setError('Price must be greater than 0');
+      return;
+    }
 
-  const newComponent: Component = {
-    ...componentData,
-    id: Date.now().toString(),
-    quantity: componentData.quantity || 1,
-    price: componentData.price,
-    category: componentData.category || detectCategory(componentData.name)
+    const newComp: Component = {
+      ...componentData,
+      id: Date.now().toString(),
+      quantity: componentData.quantity || 1,
+      price: componentData.price,
+      category: componentData.category || detectCategory(componentData.name)
+    };
+    onChange([...components, newComp]);
+    setSuccessMessage('Component added successfully!');
   };
-  onChange([...components, newComponent]);
-};
 
   const handleEdit = (component: Component) => {
     setEditingComponentId(component.id);
@@ -218,14 +231,31 @@ const addComponent = (componentData: Component) => {
       } : comp
     ));
     setEditingComponentId(null);
+    setSuccessMessage('Component updated successfully!');
   };
 
   const removeComponent = (id: string) => {
     onChange(components.filter(comp => comp.id !== id));
+    setSuccessMessage('Component removed successfully!');
   };
 
   const calculateComponentTotal = (component: Component) => {
     return (component.price || 0) * (component.quantity || 1);
+  };
+
+  const refreshComponents = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE}/components`);
+      if (!response.ok) throw new Error('Failed to fetch components');
+      const data = await response.json();
+      setBackendComponents(data.components || []);
+    } catch (err) {
+      console.error('Refresh failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to refresh components');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddOrUpdateComponent = async () => {
@@ -234,23 +264,22 @@ const addComponent = (componentData: Component) => {
       setError('');
 
       if (!newComponent.name?.trim()) {
-      throw new Error('Component name is required');
-    }
-    if (!newComponent.brand?.trim()) {
-      throw new Error('Brand is required');
-    }
-    if (newComponent.price === undefined || newComponent.price <= 0) {
-      throw new Error('Valid price is required');
-    }
+        throw new Error('Component name is required');
+      }
+      if (!newComponent.brand?.trim()) {
+        throw new Error('Brand is required');
+      }
+      if (newComponent.price === undefined || newComponent.price <= 0) {
+        throw new Error('Valid price is required');
+      }
 
-      let response;
       const url = editingCatalogComponentId 
         ? `${API_BASE}/components/${editingCatalogComponentId}`
         : `${API_BASE}/components`;
 
       const method = editingCatalogComponentId ? 'PUT' : 'POST';
       
-      response = await fetch(url, {
+      const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -271,20 +300,18 @@ const addComponent = (componentData: Component) => {
 
       const savedComponent = await response.json();
 
+      // Update the backendComponents state immediately
       if (editingCatalogComponentId) {
-        setBackendComponents(backendComponents.map(comp => 
+        setBackendComponents(prev => prev.map(comp => 
           comp.id === editingCatalogComponentId ? savedComponent : comp
         ));
+        setSuccessMessage('Component updated successfully!');
       } else {
-        const componentWithQuantity = {
-          ...savedComponent,
-          quantity: 1,
-          category: savedComponent.category || detectCategory(savedComponent.name)
-        };
-        onChange([...components, componentWithQuantity]);
-        setBackendComponents([...backendComponents, savedComponent]);
+        setBackendComponents(prev => [...prev, savedComponent]);
+        setSuccessMessage('Component added to catalog successfully!');
       }
 
+      // Reset form
       setNewComponent({
         category: 'CPU',
         name: '',
@@ -294,6 +321,7 @@ const addComponent = (componentData: Component) => {
       });
       setEditingCatalogComponentId(null);
       setShowManualForm(false);
+      
     } catch (err) {
       console.error('Error saving component:', err);
       setError(err instanceof Error ? err.message : 'Failed to save component');
@@ -323,7 +351,9 @@ const addComponent = (componentData: Component) => {
       
       if (!response.ok) throw new Error('Failed to delete component');
       
-      setBackendComponents(backendComponents.filter(comp => comp.id !== componentId));
+      // Update the state immediately
+      setBackendComponents(prev => prev.filter(comp => comp.id !== componentId));
+      setSuccessMessage('Component deleted successfully!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete component');
     }
@@ -363,6 +393,14 @@ const addComponent = (componentData: Component) => {
     if (!showManualForm) {
       setShowLiveSearch(false);
       setShowAddForm(false);
+      setEditingCatalogComponentId(null);
+      setNewComponent({
+        category: 'CPU',
+        name: '',
+        brand: '',
+        price: 0,
+        warranty: '',
+      });
     }
   };
 
@@ -373,7 +411,12 @@ const addComponent = (componentData: Component) => {
           Error: {error}
         </div>
       )}
-
+      {successMessage && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-md flex items-center gap-2">
+          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+          <span>{successMessage}</span>
+        </div>
+      )}
       {loading && (
         <div className="mb-4 p-3 bg-blue-100 text-blue-700 rounded-md">
           Loading components...
@@ -531,174 +574,156 @@ const addComponent = (componentData: Component) => {
         <div className="mb-6">
           <ProductSearch 
             onAddComponent={(componentData) => {
-                        // Validate before adding
-          if (!componentData.name?.trim()) {
-            setError('Component name is required');
-            return;
-          }
-          if (componentData.price === undefined || componentData.price <= 0) {
-            setError('Price must be greater than 0');
-            return;
-          }
-              const newComponent: Component = {
+              // Validate before adding
+              if (!componentData.name?.trim()) {
+                setError('Component name is required');
+                return;
+              }
+              if (componentData.price === undefined || componentData.price <= 0) {
+                setError('Price must be greater than 0');
+                return;
+              }
+              const newComp: Component = {
                 ...componentData,
                 id: Date.now().toString(),
                 quantity: 1,
                 category: componentData.category || detectCategory(componentData.name)
               };
-              onChange([...components, newComponent]);
+              onChange([...components, newComp]);
+              setSuccessMessage('Component added from search!');
             }} 
             apiBaseUrl={API_BASE}
           />
         </div>
       )}
 
-      {components.filter(comp => comp.name?.trim() && comp.price && comp.price > 0).length > 0 && (
-    <div className="mb-6">
-      <h3 className="text-lg font-medium text-gray-800 mb-4">Selected Components</h3>
-      <div className="space-y-3">
-        {components
-          .filter(comp => comp.name?.trim() && comp.price && comp.price > 0)
-          .map((component) => (
-            <div key={`selected-${component.id}`} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              {/* ... rest of the component rendering ... */}
+      {/* Component Form (Add/Edit) */}
+      {showManualForm && (
+        <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+          <h3 className="text-lg font-medium text-gray-800 mb-4">
+            {editingCatalogComponentId ? 'Edit Component' : 'Add Custom Component'}
+          </h3>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleAddOrUpdateComponent();
+          }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category*</label>
+                <select
+                  value={newComponent.category}
+                  onChange={(e) => setNewComponent({...newComponent, category: e.target.value as any})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  {categories.filter(c => c !== 'All').map(category => (
+                    <option key={`category-${category}`} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name*</label>
+                <input
+                  type="text"
+                  value={newComponent.name}
+                  onChange={(e) => setNewComponent({...newComponent, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. AMD Ryzen 5 5600X"
+                  required
+                  minLength={2}
+                />
+                {!newComponent.name && (
+                  <p className="text-red-500 text-xs mt-1">Name is required</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Brand*</label>
+                <input
+                  type="text"
+                  value={newComponent.brand}
+                  onChange={(e) => setNewComponent({...newComponent, brand: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. AMD"
+                  required
+                  minLength={2}
+                />
+                {!newComponent.brand && (
+                  <p className="text-red-500 text-xs mt-1">Brand is required</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)*</label>
+                <input
+                  type="number"
+                  value={newComponent.price || ''}
+                  onChange={(e) => setNewComponent({...newComponent, price: Number(e.target.value)})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. 15999"
+                  min="1"
+                  step="1"
+                  required
+                />
+                {(newComponent.price === undefined || newComponent.price <= 0) && (
+                  <p className="text-red-500 text-xs mt-1">Valid price is required</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Warranty</label>
+                <input
+                  type="text"
+                  value={newComponent.warranty}
+                  onChange={(e) => setNewComponent({...newComponent, warranty: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. 3 years"
+                />
+              </div>
             </div>
-          ))
-        }
-      </div>
-    </div>
-  )}
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
+                disabled={!newComponent.name || !newComponent.brand || !newComponent.price || newComponent.price <= 0}
+              >
+                {editingCatalogComponentId ? 'Update Component' : 'Add Component'}
+              </button>
+              <button
+                type="button"
+                onClick={toggleManualForm}
+                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
-{/* Component Form (Add/Edit) */}
-{showManualForm && (
-  <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
-    <h3 className="text-lg font-medium text-gray-800 mb-4">
-      {editingCatalogComponentId ? 'Edit Component' : 'Add Custom Component'}
-    </h3>
-    <form onSubmit={(e) => {
-      e.preventDefault();
-      handleAddOrUpdateComponent();
-    }}>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Category*</label>
-          <select
-            value={newComponent.category}
-            onChange={(e) => setNewComponent({...newComponent, category: e.target.value as any})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            required
-          >
-            {categories.filter(c => c !== 'All').map(category => (
-              <option key={`category-${category}`} value={category}>{category}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Name*</label>
-          <input
-            type="text"
-            value={newComponent.name}
-            onChange={(e) => setNewComponent({...newComponent, name: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g. AMD Ryzen 5 5600X"
-            required
-            minLength={2}
-          />
-          {!newComponent.name && (
-            <p className="text-red-500 text-xs mt-1">Name is required</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Brand*</label>
-          <input
-            type="text"
-            value={newComponent.brand}
-            onChange={(e) => setNewComponent({...newComponent, brand: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g. AMD"
-            required
-            minLength={2}
-          />
-          {!newComponent.brand && (
-            <p className="text-red-500 text-xs mt-1">Brand is required</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)*</label>
-          <input
-            type="number"
-            value={newComponent.price || ''}
-            onChange={(e) => setNewComponent({...newComponent, price: Number(e.target.value)})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g. 15999"
-            min="1"
-            step="1"
-            required
-          />
-          {(newComponent.price === undefined || newComponent.price <= 0) && (
-            <p className="text-red-500 text-xs mt-1">Valid price is required</p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Warranty</label>
-          <input
-            type="text"
-            value={newComponent.warranty}
-            onChange={(e) => setNewComponent({...newComponent, warranty: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g. 3 years"
-          />
-        </div>
-      </div>
-      <div className="flex justify-end gap-2 mt-4">
-        <button
-          type="submit"
-          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
-          disabled={!newComponent.name || !newComponent.brand || !newComponent.price || newComponent.price <= 0}
-        >
-          {editingCatalogComponentId ? 'Update Component' : 'Add Component'}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setShowManualForm(false);
-            setEditingCatalogComponentId(null);
-          }}
-          className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  </div>
-)}
+      {/* Component Catalog */}
+      {showAddForm && (
+        <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+          <h3 className="text-lg font-medium text-gray-800 mb-4">Browse Component Catalog</h3>
 
-{/* Component Catalog */}
-{showAddForm && (
-  <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
-    <h3 className="text-lg font-medium text-gray-800 mb-4">Browse Component Catalog</h3>
-
-    <div className="flex flex-col md:flex-row gap-4 mb-4">
-      <div className="flex-1 relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="Search components..."
-        />
-      </div>
-      <select
-        value={selectedCategory}
-        onChange={(e) => setSelectedCategory(e.target.value)}
-        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      >
-        {categories.map(category => (
-          <option key={`select-${category}`} value={category}>{category}</option>
-        ))}
-      </select>
-    </div>
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Search components..."
+              />
+            </div>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {categories.map(category => (
+                <option key={`select-${category}`} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
 
     <div className="max-h-64 overflow-y-auto space-y-2">
       {filteredSampleComponents
