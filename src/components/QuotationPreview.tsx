@@ -194,3 +194,4 @@ export const QuotationPreview = ({
     </div>
   );
 };
+export default QuotationPreview;
