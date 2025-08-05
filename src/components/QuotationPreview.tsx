@@ -1,6 +1,7 @@
+// Professional QuotationPreview component with polished layout and styling
 import React from 'react';
 import { FileText, Download, Printer, Share2 } from 'lucide-react';
-import { Component, Customer, CompanyInfo } from '../types';
+import type { Component, Customer, CompanyInfo } from '../types';
 
 interface QuotationPreviewProps {
   customer: Customer;
@@ -12,10 +13,16 @@ interface QuotationPreviewProps {
   onPrint: () => void;
   onShare: () => Promise<void>;
   isLoading?: boolean;
-  companyInfo: CompanyInfo; // Add companyInfo to props
+  companyInfo: CompanyInfo;
 }
 
-export default function QuotationPreview({
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount).replace('₹', '₹');
+
+const formatDate = (date: Date) =>
+  date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+export const QuotationPreview = ({
   customer,
   components,
   gstRate,
@@ -25,229 +32,165 @@ export default function QuotationPreview({
   onPrint,
   onShare,
   isLoading = false,
-  companyInfo // Destructure companyInfo from props
-}: QuotationPreviewProps) {
-  const subtotal = components.reduce((sum, component) => sum + (component.price * component.quantity), 0);
+  companyInfo
+}: QuotationPreviewProps) => {
+  const subtotal = components.reduce((sum, c) => sum + (c.price * c.quantity), 0);
   const discountAmount = (subtotal * discountRate) / 100;
   const taxableAmount = subtotal - discountAmount;
   const gstAmount = (taxableAmount * gstRate) / 100;
   const totalAmount = taxableAmount + gstAmount;
 
   const quotationId = `QUO-${Date.now().toString().slice(-6)}`;
-  const currentDate = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
-  const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+  const currentDate = formatDate(new Date());
+  const validUntil = formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 
-  const handleAction = async (action: () => Promise<void>) => {
-    try {
-      await action();
-    } catch (error) {
-      console.error('Action failed:', error);
-    }
-  };
+  const ActionButton = ({ icon: Icon, onClick, label, color = 'blue', disabled = false }: {
+    icon: React.ComponentType<{ className?: string }>;
+    onClick: () => void | Promise<void>;
+    label: string;
+    color?: string;
+    disabled?: boolean;
+  }) => (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`px-4 py-2 rounded-md transition-colors flex items-center gap-2 bg-${color}-600 hover:bg-${color}-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed`}
+    >
+      <Icon className="w-4 h-4" />
+      {disabled && label === 'Download PDF' ? 'Generating...' : label}
+    </button>
+  );
+
+  const CompanyHeader = () => (
+    <div className="flex flex-col md:flex-row justify-between items-start mb-8 border-b border-gray-300 pb-6 print:flex-row">
+      <div className="mb-4 md:mb-0 max-w-md">
+        {companyInfo.logo && (
+          <img
+            src={companyInfo.logo}
+            alt={`${companyInfo.name} Logo`}
+            className="h-16 mb-2 object-contain"
+          />
+        )}
+        <h1 className="text-3xl font-extrabold text-blue-800 tracking-tight">{companyInfo.name}</h1>
+        <div className="text-sm text-gray-700 mt-1 space-y-1">
+          <p>{companyInfo.address}</p>
+          <p>{companyInfo.phone} | {companyInfo.email}</p>
+          <p>GSTIN: {companyInfo.gstin}</p>
+          {companyInfo.website && (
+            <a
+              href={`https://${companyInfo.website}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              {companyInfo.website}
+            </a>
+          )}
+        </div>
+      </div>
+      <div className="text-sm text-gray-800 border border-gray-300 rounded-lg p-4 w-full md:w-64 mt-4 md:mt-0 bg-gray-50">
+        <h3 className="text-lg font-semibold mb-3">Quotation Info</h3>
+        <p><span className="font-medium">Quotation ID:</span> {quotationId}</p>
+        <p><span className="font-medium">Date:</span> {currentDate}</p>
+        <p><span className="font-medium">Valid Until:</span> {validUntil}</p>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-100 max-w-6xl mx-auto">
+    <div className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-6xl mx-auto">
       <div className="p-6 border-b border-gray-200">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <FileText className="w-5 h-5 text-blue-600" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-800">Quotation Preview</h2>
+            <h2 className="text-xl font-bold text-gray-900">Quotation Preview</h2>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={onPrint}
-              disabled={isLoading}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-            >
-              <Printer className="w-4 h-4" />
-              Print
-            </button>
-            <button
-              onClick={() => handleAction(onShare)}
-              disabled={isLoading}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-            >
-              <Share2 className="w-4 h-4" />
-              Share
-            </button>
-            <button
-              onClick={() => handleAction(onGeneratePDF)}
-              disabled={isLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-            >
-              <Download className="w-4 h-4" />
-              {isLoading ? 'Generating...' : 'Download PDF'}
-            </button>
+            <ActionButton icon={Printer} onClick={onPrint} label="Print" color="gray" disabled={isLoading} />
+            <ActionButton icon={Share2} onClick={onShare} label="Share" color="green" disabled={isLoading} />
+            <ActionButton icon={Download} onClick={onGeneratePDF} label="Download PDF" disabled={isLoading} />
           </div>
         </div>
       </div>
 
-      <div id="quotation-content" className="p-6 print:p-0">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-gray-200 pb-6 print:flex-row">
-          <div className="mb-4 md:mb-0">
-            {companyInfo.logo && (
-              <img 
-                src={companyInfo.logo} 
-                alt={`${companyInfo.name} Logo`} 
-                className="h-16 mb-2 object-contain"
-              />
-            )}
-            <h1 className="text-2xl md:text-3xl font-bold text-blue-600">{companyInfo.name}</h1>
-          </div>
-          <div className="text-gray-600 space-y-1 text-sm md:text-base text-center md:text-right">
-            <p>{companyInfo.address}</p>
-            <p>{companyInfo.phone} | {companyInfo.email}</p>
-            <p>GSTIN: {companyInfo.gstin}</p>
-            {companyInfo.website && (
-              <p className="text-blue-600 hover:underline">
-                <a href={`https://${companyInfo.website}`} target="_blank" rel="noopener noreferrer">
-                  {companyInfo.website}
-                </a>
-              </p>
-            )}
+      <div id="quotation-content" className="p-6 md:p-10 bg-white max-w-[794px] mx-auto">
+        <CompanyHeader />
+
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Customer Details</h3>
+          <div className="bg-gray-50 p-4 rounded-md text-sm text-gray-800 border border-gray-200">
+            <p><span className="font-medium">Name:</span> {customer.name || 'N/A'}</p>
+            <p><span className="font-medium">Phone:</span> {customer.phone || 'N/A'}</p>
+            <p><span className="font-medium">Email:</span> {customer.email || 'N/A'}</p>
+            {customer.address && <p><span className="font-medium">Address:</span> {customer.address}</p>}
           </div>
         </div>
 
-        {/* Quotation Info */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8 print:grid-cols-2">
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Customer Details</h3>
-            <div className="space-y-2 text-gray-600">
-              <p><span className="font-medium">Name:</span> {customer.name || 'N/A'}</p>
-              <p><span className="font-medium">Phone:</span> {customer.phone || 'N/A'}</p>
-              <p><span className="font-medium">Email:</span> {customer.email || 'N/A'}</p>
-              {customer.address && <p><span className="font-medium">Address:</span> {customer.address}</p>}
-            </div>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Quotation Details</h3>
-            <div className="space-y-2 text-gray-600">
-              <p><span className="font-medium">Quotation ID:</span> {quotationId}</p>
-              <p><span className="font-medium">Date:</span> {currentDate}</p>
-              <p><span className="font-medium">Valid Until:</span> {validUntil}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Components Table */}
         {components.length > 0 && (
           <div className="mb-8">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Components</h3>
-            <div className="overflow-x-auto print:overflow-visible">
-              <table className="w-full border border-gray-200 rounded-lg print:w-full">
-                <thead className="bg-gray-50 print:bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                      #
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                      Component
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                      Product
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                      Qty
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                      Unit Price (₹)
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
-                      Total (₹)
-                    </th>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Component Details</h3>
+            <table className="w-full table-auto text-sm border border-gray-200 rounded-md overflow-hidden">
+              <thead className="bg-gray-100 text-gray-700">
+                <tr>
+                  <th className="px-4 py-2 text-left">Component</th>
+                  <th className="px-4 py-2 text-left">Brand</th>
+                  
+                  <th className="px-4 py-2 text-right">Qty</th>
+                  <th className="px-4 py-2 text-right">Unit Price</th>
+                  <th className="px-4 py-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {components.map((c, i) => (
+                  <tr key={i} className="border-t border-gray-200">
+                    <td className="px-4 py-2">{c.name}</td>
+                    <td className="px-4 py-2">{c.brand}</td>
+                    
+                    <td className="px-4 py-2 text-right">{c.quantity}</td>
+                    <td className="px-4 py-2 text-right">{formatCurrency(c.price)}</td>
+                    <td className="px-4 py-2 text-right">{formatCurrency(c.price * c.quantity)}</td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {components.map((component, index) => (
-  <tr key={component.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-    <td className="px-4 py-3 text-sm text-gray-500">{index + 1}</td>
-    <td className="px-4 py-3 text-sm font-medium text-gray-900">{component.category || 'N/A'}</td>
-    <td className="px-4 py-3 text-sm text-gray-600">
-      <div className="font-medium">{component.name || 'N/A'}</div>
-      <div className="text-xs text-gray-500">
-        {component.brand || ''} {component.model && `• ${component.model}`}
-        {component.warranty && ` • Warranty: ${component.warranty}`}
-      </div>
-    </td>
-    <td className="px-4 py-3 text-sm text-gray-600 text-center">{component.quantity || 0}</td>
-    <td className="px-4 py-3 text-sm text-gray-600 text-right">
-      {(component.price || 0).toLocaleString('en-IN')}
-    </td>
-    <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
-      {((component.price || 0) * (component.quantity || 0)).toLocaleString('en-IN')}
-    </td>
-  </tr>
-))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
-        {/* Pricing Summary */}
-        <div className="border-t border-gray-200 pt-6">
-          <div className="max-w-md ml-auto">
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Subtotal:</span>
-                <span className="text-gray-900">₹{subtotal.toLocaleString('en-IN')}</span>
-              </div>
-              {discountRate > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-green-600">Discount ({discountRate}%):</span>
-                  <span className="text-green-600">-₹{discountAmount.toLocaleString('en-IN')}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-gray-600">Taxable Amount:</span>
-                <span className="text-gray-900">₹{taxableAmount.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">GST ({gstRate}%):</span>
-                <span className="text-gray-900">₹{gstAmount.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="border-t border-gray-200 pt-3 flex justify-between text-lg font-semibold">
-                <span>Total Amount:</span>
-                <span>₹{totalAmount.toLocaleString('en-IN')}</span>
-              </div>
+        <div className="text-sm text-gray-800 flex justify-end">
+          <div className="w-full md:w-1/2 border border-gray-300 rounded-md p-4 bg-gray-50">
+            <h4 className="text-base font-semibold mb-4 text-gray-900">Pricing Summary</h4>
+            <div className="flex justify-between mb-2">
+              <span>Subtotal:</span>
+              <span>{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex justify-between mb-2">
+              <span>Discount ({discountRate}%):</span>
+              <span>-{formatCurrency(discountAmount)}</span>
+            </div>
+            <div className="flex justify-between mb-2">
+              <span>GST ({gstRate}%):</span>
+              <span>{formatCurrency(gstAmount)}</span>
+            </div>
+            <div className="flex justify-between font-bold border-t pt-2 mt-2">
+              <span>Total Amount:</span>
+              <span>{formatCurrency(totalAmount)}</span>
             </div>
           </div>
         </div>
 
-        {/* Notes */}
-        <div className="border-t border-gray-200 pt-6 mt-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">Terms & Conditions</h3>
-          <div className="text-gray-600 whitespace-pre-wrap">
-            {notes || (
-              <ol className="list-decimal pl-5 space-y-2">
-                <li>Prices are inclusive of all taxes unless specified otherwise.</li>
-                <li>This quotation is valid for 30 days from the date of issue.</li>
-                <li>Payment terms: 50% advance, 50% before delivery.</li>
-                <li>Delivery timeline: 3-5 working days after payment confirmation.</li>
-                <li>Warranty as per manufacturer's terms and conditions.</li>
-              </ol>
-            )}
+        {notes && (
+          <div className="mt-6 text-sm text-gray-800">
+            <h4 className="font-semibold mb-2 text-gray-900">Terms & Conditions</h4>
+            <p className="bg-yellow-50 border border-yellow-200 p-3 rounded-md leading-relaxed whitespace-pre-wrap">{notes}</p>
           </div>
-        </div>
+        )}
 
-        {/* Footer */}
-        <div className="border-t border-gray-200 pt-6 mt-8 text-center text-gray-500 text-sm">
-          <p>Thank you for choosing {companyInfo.name}!</p>
-          <p className="mt-2">For any queries, please contact us at {companyInfo.phone} or {companyInfo.email}</p>
-          <p className="mt-2">This quotation is valid until {validUntil}</p>
+        <div className="mt-12 text-center text-xs text-gray-400">
+          <p>Generated by {companyInfo.name} - {companyInfo.website}</p>
         </div>
       </div>
     </div>
   );
-}
+};

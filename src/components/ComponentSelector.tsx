@@ -1,5 +1,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Package, Trash2, Edit3, ExternalLink, Globe, Download, Upload, CheckCircle } from 'lucide-react';
+import { 
+  Plus, 
+  Search, 
+  Package, 
+  Trash2, 
+  Edit3, 
+  ExternalLink, 
+  Globe, 
+  Download, 
+  Upload, 
+  CheckCircle, 
+  RefreshCw // Add this import
+} from 'lucide-react';
 import ProductSearch from './ProductSearch';
 
 interface Component {
@@ -243,20 +255,21 @@ export default function ComponentSelector({ components = [], onChange }: Compone
     return (component.price || 0) * (component.quantity || 1);
   };
 
-  const refreshComponents = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_BASE}/components`);
-      if (!response.ok) throw new Error('Failed to fetch components');
-      const data = await response.json();
-      setBackendComponents(data.components || []);
-    } catch (err) {
-      console.error('Refresh failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to refresh components');
-    } finally {
-      setLoading(false);
-    }
-  };
+const refreshComponents = async () => {
+  try {
+    setLoading(true);
+    const response = await fetch(`${API_BASE}/components`);
+    if (!response.ok) throw new Error('Failed to fetch components');
+    const data = await response.json();
+    setBackendComponents(data.components || []);
+    setSuccessMessage('Catalog refreshed successfully!');
+  } catch (err) {
+    console.error('Refresh failed:', err);
+    setError(err instanceof Error ? err.message : 'Failed to refresh components');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleAddOrUpdateComponent = async () => {
     try {
@@ -702,7 +715,14 @@ export default function ComponentSelector({ components = [], onChange }: Compone
       {showAddForm && (
         <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
           <h3 className="text-lg font-medium text-gray-800 mb-4">Browse Component Catalog</h3>
-
+      <button
+        onClick={refreshComponents}
+        className="p-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition-colors flex items-center justify-center"
+        title="Refresh catalog"
+        disabled={loading}
+      >
+        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+      </button>
           <div className="flex flex-col md:flex-row gap-4 mb-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />

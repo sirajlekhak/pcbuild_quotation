@@ -6,7 +6,8 @@
     "brand": "AMD",
     "price": 899.99,
     "warranty": "3 years",
-    "link": "https://www.amd.com/en/graphics/radeon-rx-7900-series"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "b8f2dd85-9ca7-54c5-b470-b99e4ce38e8g",
@@ -15,7 +16,8 @@
     "brand": "Intel",
     "price": 589.99,
     "warranty": "3 years",
-    "link": "https://www.intel.com/content/www/us/en/products/sku/230496/intel-core-i913900k-processor-36m-cache-up-to-5-80-ghz/specifications.html"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "c7e3ee96-8db8-65d6-c581-caaf5df49f9h",
@@ -24,7 +26,8 @@
     "brand": "Corsair",
     "price": 149.99,
     "warranty": "Lifetime",
-    "link": "https://www.corsair.com/us/en/p/memory/cmk32gx5m2b5600c36/vengeance-32gb-2x16gb-ddr5-dram-5600mt-s-c36-memory-kit-black-cmk32gx5m2b5600c36"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "d6d4ff07-7ec9-76e7-d692-dbb06ce5a0fi",
@@ -33,7 +36,8 @@
     "brand": "ASUS",
     "price": 449.99,
     "warranty": "3 years",
-    "link": "https://www.asus.com/us/motherboards-components/motherboards/rog-strix/rog-strix-z790-e-gaming-wifi/"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "e5c5e018-6fda-87f8-e7a3-ecc17df4b1gj",
@@ -42,7 +46,8 @@
     "brand": "Samsung",
     "price": 129.99,
     "warranty": "5 years",
-    "link": "https://www.samsung.com/us/computing/memory-storage/solid-state-drives/980-pro-pcie-4-0-nvme-ssd-1tb-mz-v8p1t0b-am/"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "f4b6d129-5eeb-98g9-f8b4-fdd28e3c2ahk",
@@ -51,7 +56,8 @@
     "brand": "Corsair",
     "price": 149.99,
     "warranty": "10 years",
-    "link": "https://www.corsair.com/us/en/p/psu/cp-9020200-na/rmx-series-rm850x-850-watt-80-plus-gold-certified-fully-modular-psu-cp-9020200-na"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "g3a7e23a-4dfc-a9ha-g9c5-gee39f4d3bil",
@@ -60,7 +66,8 @@
     "brand": "Lian Li",
     "price": 159.99,
     "warranty": "2 years",
-    "link": "https://lian-li.com/product/pc-o11dynamic/"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "h2b8f34b-3ced-baib-had6-hff0a5e4cjm",
@@ -69,7 +76,8 @@
     "brand": "Noctua",
     "price": 109.95,
     "warranty": "6 years",
-    "link": "https://noctua.at/en/nh-d15-chromax-black"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "i1c9g45c-2bde-cbjc-ibe7-igg1b6f5dkn",
@@ -78,7 +86,8 @@
     "brand": "LG",
     "price": 799.99,
     "warranty": "3 years",
-    "link": "https://www.lg.com/us/monitors/lg-27gn950-b-gaming-monitor"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "j0d0h56d-1acf-dckd-jcf8-jhh2c7g6elo",
@@ -87,7 +96,8 @@
     "brand": "Logitech",
     "price": 199.99,
     "warranty": "2 years",
-    "link": "https://www.logitechg.com/en-us/products/keyboards/pro-x-keyboard.html"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "k9e1i67e-0bge-edle-kdg9-kii3d8h7fmp",
@@ -96,7 +106,8 @@
     "brand": "NVIDIA",
     "price": 1199.99,
     "warranty": "3 years",
-    "link": "https://www.nvidia.com/en-us/geforce/graphics-cards/40-series/rtx-4080/"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "l8f2j78f-9ahf-feof-leha-ljj4e9i8gnq",
@@ -105,7 +116,8 @@
     "brand": "AMD",
     "price": 699.99,
     "warranty": "3 years",
-    "link": "https://www.amd.com/en/products/cpu/amd-ryzen-9-7950x"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
   },
   {
     "id": "m7g3k89g-8big-gfpg-mfib-mkk5f0j9hor",
@@ -114,6 +126,27 @@
     "brand": "WD",
     "price": 249.99,
     "warranty": "5 years",
-    "link": "https://www.westerndigital.com/products/internal-drives/wd-black-sn850x-nvme-ssd"
+    "created_at": "2025-08-04T23:23:05.470749",
+    "updated_at": "2025-08-04T23:38:11.397214"
+  },
+  {
+    "id": "3236551d-d912-443a-90ad-48a946032241",
+    "category": "CPU",
+    "name": "i5 11TH",
+    "brand": "INTEL",
+    "price": 45987.0,
+    "warranty": "1 YEAR",
+    "created_at": "2025-08-04T23:23:05.469770",
+    "updated_at": "2025-08-04T23:38:11.397214"
+  },
+  {
+    "id": "08bb520f-750a-44b2-96a9-8363dd5a0725",
+    "category": "CPU",
+    "name": "INTEL6",
+    "brand": "INTEL",
+    "price": 797946.0,
+    "warranty": "2 YEARS",
+    "created_at": "2025-08-04T23:38:11.397214",
+    "updated_at": "2025-08-04T23:38:11.397214"
   }
 ]

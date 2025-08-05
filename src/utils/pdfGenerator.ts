@@ -8,11 +8,24 @@ export const generatePDF = () => {
   }
 
   const options = {
-    margin: 0.5, // margins in inches
+    margin: [10, 10, 10, 10], // top, right, bottom, left in mm
     filename: `PC_Build_Quotation_${Date.now()}.pdf`,
     image: { type: 'jpeg', quality: 1 },
-    html2canvas: { scale: 3, useCORS: true, backgroundColor: '#ffffff' },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    html2canvas: {
+      scale: 3,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      scrollY: 0
+    },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait'
+    },
+    pagebreak: {
+      mode: ['avoid-all', 'css', 'legacy'],
+      after: '.pdf-pagebreak' // optional class for manual breaks
+    }
   };
 
   html2pdf()
@@ -25,7 +38,7 @@ export const generatePDF = () => {
     });
 };
 
-// Print function remains unchanged
+
 export const printQuotation = () => {
   const element = document.getElementById('quotation-content');
   if (!element) return;
@@ -60,6 +73,7 @@ export const printQuotation = () => {
   printWindow.document.close();
   printWindow.print();
 };
+
 
 // Share function remains unchanged
 export const shareQuotation = async () => {
