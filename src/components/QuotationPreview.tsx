@@ -169,7 +169,7 @@ export const QuotationPreview = ({
                   <th className="px-4 py-2 text-left">Brand</th>
                   <th className="px-4 py-2 text-right">Qty</th>
                   <th className="px-4 py-2 text-right">Unit Price</th>
-                  <th className="px-4 py-2 text-right">Total</th>
+                  
                 </tr>
               </thead>
               <tbody>
@@ -179,7 +179,7 @@ export const QuotationPreview = ({
                     <td className="px-4 py-2">{c.brand}</td>
                     <td className="px-4 py-2 text-right">{c.quantity}</td>
                     <td className="px-4 py-2 text-right">{formatCurrency(c.price)}</td>
-                    <td className="px-4 py-2 text-right">{formatCurrency(c.price * c.quantity)}</td>
+
                   </tr>
                 ))}
               </tbody>

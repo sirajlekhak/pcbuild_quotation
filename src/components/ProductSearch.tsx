@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Search, ExternalLink, ShoppingCart, RefreshCw, Globe } from 'lucide-react';
 import { Component } from '../types';
 
@@ -15,6 +15,7 @@ interface ScrapedProduct {
   warranty?: string;
   brand?: string;
   category?: string;
+  seller?: string;
 }
 
 export default function ProductSearch({ 
@@ -27,56 +28,56 @@ export default function ProductSearch({
   const [error, setError] = useState('');
   const [selectedSeller, setSelectedSeller] = useState<'all' | 'amazon' | 'flipkart' | 'mdcomputers' | 'bing'>('all');
   const [bingResults, setBingResults] = useState<ScrapedProduct[]>([]);
+  const [searchTriggered, setSearchTriggered] = useState(false);
 
   // Fetch Bing results separately
   const fetchBingResults = async (searchTerm: string) => {
-  if (searchTerm.trim().length < 2) {
-    setBingResults([]);
-    return;
-  }
-
-  try {
-    const response = await fetch(
-      `${apiBaseUrl}/bing-search?query=${encodeURIComponent(searchTerm)}`
-    );
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.error || 'Bing search failed');
-    }
-
-    // Debug: Log the raw response
-    console.log('Bing API response:', data);
-
-    const formattedProducts = data.results.map((item: any) => ({
-      title: item.title || item.name || 'Unknown Product', // Try both title and name
-      price: typeof item.price === 'string' 
-        ? parseFloat(item.price.replace(/[^\d.]/g, '')) 
-        : item.price || 0,
-      link: item.link || '#',
-      site: 'bing',
-      brand: item.brand || item.seller || extractBrand(item.title || item.name || ''),
-      category: item.category || detectCategory(item.title || item.name || ''),
-      warranty: item.warranty || '1 year',
-      seller: item.seller || '' // Make sure seller is included
-    }));
-
-    setBingResults(formattedProducts);
-  } catch (err) {
-    console.error('Bing search error:', err);
-    setBingResults([]);
-  }
-};
-
-  // Improved search with debouncing and error handling
-  const searchProducts = useCallback(async (searchTerm: string) => {
     if (searchTerm.trim().length < 2) {
-      setProducts([]);
       setBingResults([]);
       return;
     }
 
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/bing-search?query=${encodeURIComponent(searchTerm)}`
+      );
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Bing search failed');
+      }
+
+      const formattedProducts = data.results.map((item: any) => ({
+        title: item.title || item.name || 'Unknown Product',
+        price: typeof item.price === 'string' 
+          ? parseFloat(item.price.replace(/[^\d.]/g, '')) 
+          : item.price || 0,
+        link: item.link || '#',
+        site: 'bing',
+        brand: item.brand || item.seller || extractBrand(item.title || item.name || ''),
+        category: item.category || detectCategory(item.title || item.name || ''),
+        warranty: item.warranty || '1 year',
+        seller: item.seller || ''
+      }));
+
+      setBingResults(formattedProducts);
+    } catch (err) {
+      console.error('Bing search error:', err);
+      setBingResults([]);
+    }
+  };
+
+  // Search function triggered by button click
+  const handleSearch = useCallback(async () => {
+    if (query.trim().length < 2) {
+      setProducts([]);
+      setBingResults([]);
+      setError('Query must be at least 2 characters');
+      return;
+    }
+
+    setSearchTriggered(true);
     setLoading(true);
     setError('');
 
@@ -84,7 +85,7 @@ export default function ProductSearch({
       // Fetch from other sellers if not Bing-only
       if (selectedSeller !== 'bing') {
         const response = await fetch(
-          `${apiBaseUrl}/search?query=${encodeURIComponent(searchTerm)}&seller=${selectedSeller === 'all' ? 'amazon,flipkart,mdcomputers' : selectedSeller}`
+          `${apiBaseUrl}/search?query=${encodeURIComponent(query)}&seller=${selectedSeller === 'all' ? 'amazon,flipkart,mdcomputers' : selectedSeller}`
         );
 
         const data = await response.json();
@@ -93,27 +94,25 @@ export default function ProductSearch({
           throw new Error(data.error || 'Search failed');
         }
 
-        // Transform backend response to frontend format
-// In your searchProducts function, update the mapping:
-const formattedProducts = data.results.map((item: any) => ({
-  title: item.title || item.name || 'Unknown Product',
-  price: typeof item.price === 'string' 
-    ? parseFloat(item.price.replace(/[^\d.]/g, '')) 
-    : item.price || 0,
-  link: item.link || '#',
-  site: item.site || selectedSeller,
-  brand: item.brand || extractBrand(item.title || item.name || ''),
-  category: item.category || detectCategory(item.title || item.name || ''),
-  warranty: item.warranty || '1 year',
-  seller: item.seller || ''
-}));
+        const formattedProducts = data.results.map((item: any) => ({
+          title: item.title || item.name || 'Unknown Product',
+          price: typeof item.price === 'string' 
+            ? parseFloat(item.price.replace(/[^\d.]/g, '')) 
+            : item.price || 0,
+          link: item.link || '#',
+          site: item.site || selectedSeller,
+          brand: item.brand || extractBrand(item.title || item.name || ''),
+          category: item.category || detectCategory(item.title || item.name || ''),
+          warranty: item.warranty || '1 year',
+          seller: item.seller || ''
+        }));
 
         setProducts(formattedProducts);
       }
 
       // Always fetch Bing results when selected
       if (selectedSeller === 'all' || selectedSeller === 'bing') {
-        await fetchBingResults(searchTerm);
+        await fetchBingResults(query);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to search products');
@@ -121,33 +120,20 @@ const formattedProducts = data.results.map((item: any) => ({
     } finally {
       setLoading(false);
     }
-  }, [apiBaseUrl, selectedSeller]);
-
-  // Debounced search effect
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      searchProducts(query);
-    }, 500);
-
-    return () => clearTimeout(debounceTimer);
-  }, [query, searchProducts, selectedSeller]);
+  }, [apiBaseUrl, selectedSeller, query]);
 
   // Combine results based on selected seller
   const combinedResults = useMemo(() => {
-    if (selectedSeller === 'bing') {
-      return bingResults;
-    }
-    if (selectedSeller === 'all') {
-      return [...products, ...bingResults];
-    }
+    if (!searchTriggered) return [];
+    if (selectedSeller === 'bing') return bingResults;
+    if (selectedSeller === 'all') return [...products, ...bingResults];
     return products;
-  }, [products, bingResults, selectedSeller]);
+  }, [products, bingResults, selectedSeller, searchTriggered]);
 
   // Helper functions
   const formatPrice = (price: string | number): number => {
     if (typeof price === 'number') return price;
     if (typeof price === 'string') {
-      // Remove currency symbols and commas
       const numericValue = parseFloat(price.replace(/[^\d.]/g, ''));
       return isNaN(numericValue) ? 0 : numericValue;
     }
@@ -166,8 +152,6 @@ const formattedProducts = data.results.map((item: any) => ({
     if (!title) return 'Other';
     
     const lower = title.toLowerCase();
-    
-    // Improved category detection with more specific patterns
     if (lower.match(/\b(ryzen|core\si[3579]|xeon|pentium|celeron)\b/)) return 'CPU';
     if (lower.match(/\b(rtx|gtx|radeon|arc|gpu|graphics\scard)\b/)) return 'GPU';
     if (lower.match(/\b(ddr[45]?|ram|memory)\b/)) return 'RAM';
@@ -219,9 +203,17 @@ const formattedProducts = data.results.map((item: any) => ({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 border rounded-md"
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="w-full pl-10 pr-12 py-2 border rounded-md"
               placeholder="Search products..."
             />
+            <button
+              onClick={handleSearch}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+              disabled={loading}
+            >
+              <Search className="w-4 h-4" />
+            </button>
           </div>
           <select
             value={selectedSeller}
@@ -246,7 +238,7 @@ const formattedProducts = data.results.map((item: any) => ({
           <RefreshCw className="animate-spin mr-2" />
           <span>Searching...</span>
         </div>
-      ) : combinedResults.length > 0 ? (
+      ) : searchTriggered && combinedResults.length > 0 ? (
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {combinedResults.map((product, index) => (
             <div key={index} className="p-3 border rounded hover:bg-gray-50">
@@ -291,7 +283,7 @@ const formattedProducts = data.results.map((item: any) => ({
             </div>
           ))}
         </div>
-      ) : query ? (
+      ) : searchTriggered && query ? (
         <div className="text-center py-4 text-gray-500">
           No products found for "{query}"
         </div>
