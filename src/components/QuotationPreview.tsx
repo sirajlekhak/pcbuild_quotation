@@ -1,4 +1,3 @@
-// Professional QuotationPreview component with polished layout and styling
 import React from 'react';
 import { FileText, Download, Printer, Share2 } from 'lucide-react';
 import type { Component, Customer, CompanyInfo } from '../types';
@@ -44,20 +43,35 @@ export const QuotationPreview = ({
   const currentDate = formatDate(new Date());
   const validUntil = formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 
-  const ActionButton = ({ icon: Icon, onClick, label, color = 'blue', disabled = false }: {
+  const IconButton = ({ 
+    icon: Icon, 
+    onClick, 
+    color = 'blue',
+    disabled = false,
+    tooltip
+  }: {
     icon: React.ComponentType<{ className?: string }>;
     onClick: () => void | Promise<void>;
-    label: string;
     color?: string;
     disabled?: boolean;
+    tooltip: string;
   }) => (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`px-4 py-2 rounded-md transition-colors flex items-center gap-2 bg-${color}-600 hover:bg-${color}-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed`}
+      title={tooltip}
+      className={`
+        p-2 rounded-full transition-colors
+        bg-${color}-600 hover:bg-${color}-700 text-white
+        disabled:opacity-50 disabled:cursor-not-allowed
+        flex items-center justify-center
+        relative group
+      `}
     >
       <Icon className="w-4 h-4" />
-      {disabled && label === 'Download PDF' ? 'Generating...' : label}
+      <span className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+        {tooltip}
+      </span>
     </button>
   );
 
@@ -99,18 +113,35 @@ export const QuotationPreview = ({
 
   return (
     <div className="bg-white rounded-xl shadow-xl border border-gray-200 max-w-6xl mx-auto">
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <FileText className="w-5 h-5 text-blue-600" />
             </div>
             <h2 className="text-xl font-bold text-gray-900">Quotation Preview</h2>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <ActionButton icon={Printer} onClick={onPrint} label="Print" color="gray" disabled={isLoading} />
-            <ActionButton icon={Share2} onClick={onShare} label="Share" color="green" disabled={isLoading} />
-            <ActionButton icon={Download} onClick={onGeneratePDF} label="Download PDF" disabled={isLoading} />
+          <div className="flex gap-2">
+            <IconButton 
+              icon={Printer} 
+              onClick={onPrint} 
+              color="gray" 
+              disabled={isLoading}
+              tooltip="Print Quotation"
+            />
+            <IconButton 
+              icon={Share2} 
+              onClick={onShare} 
+              color="green" 
+              disabled={isLoading}
+              tooltip="Share Quotation"
+            />
+            <IconButton 
+              icon={Download} 
+              onClick={onGeneratePDF} 
+              disabled={isLoading}
+              tooltip={isLoading ? 'Generating PDF...' : 'Download PDF'}
+            />
           </div>
         </div>
       </div>
@@ -136,7 +167,6 @@ export const QuotationPreview = ({
                 <tr>
                   <th className="px-4 py-2 text-left">Component</th>
                   <th className="px-4 py-2 text-left">Brand</th>
-                  
                   <th className="px-4 py-2 text-right">Qty</th>
                   <th className="px-4 py-2 text-right">Unit Price</th>
                   <th className="px-4 py-2 text-right">Total</th>
@@ -147,7 +177,6 @@ export const QuotationPreview = ({
                   <tr key={i} className="border-t border-gray-200">
                     <td className="px-4 py-2">{c.name}</td>
                     <td className="px-4 py-2">{c.brand}</td>
-                    
                     <td className="px-4 py-2 text-right">{c.quantity}</td>
                     <td className="px-4 py-2 text-right">{formatCurrency(c.price)}</td>
                     <td className="px-4 py-2 text-right">{formatCurrency(c.price * c.quantity)}</td>
@@ -194,4 +223,5 @@ export const QuotationPreview = ({
     </div>
   );
 };
+
 export default QuotationPreview;
