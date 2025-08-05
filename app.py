@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
 from typing import Dict, List, Optional
-
+from backend.scrapers.bing import scrape_bing
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -18,7 +18,6 @@ from webdriver_manager.core.os_manager import ChromeType
 from backend.scrapers.amazon import scrape_amazon
 from backend.scrapers.flipkart import scrape_flipkart
 from backend.scrapers.mdcomputers import scrape_mdcomputers
-
 
 # Add this at the top of your Flask app
 DATA_DIR = Path(__file__).parent / 'data'
@@ -96,6 +95,85 @@ def save_components(components: List[Dict]) -> bool:
         logger.error(f"Error saving components: {str(e)}")
         return False
 
+def detect_category(title: str) -> str:
+    """Detect component category from product title"""
+    if not title:
+        return "Other"
+    
+    lower_title = title.lower()
+    
+    if any(term in lower_title for term in ['i3', 'i5', 'i7', 'i9', 'ryzen', 'core', 'pentium', 'celeron', 'xeon']):
+        return "CPU"
+    if any(term in lower_title for term in ['rtx', 'gtx', 'radeon', 'arc', 'gpu', 'graphics card']):
+        return "GPU"
+    if any(term in lower_title for term in ['ddr3', 'ddr4', 'ddr5', 'ram', 'memory']):
+        return "RAM"
+    if any(term in lower_title for term in ['motherboard', 'mainboard', 'h61', 'b450', 'x570', 'z690']):
+        return "Motherboard"
+    if any(term in lower_title for term in ['ssd', 'nvme', 'hdd', 'hard disk', 'm.2']):
+        return "Storage"
+    if any(term in lower_title for term in ['psu', 'power supply', 'smps']):
+        return "PSU"
+    if any(term in lower_title for term in ['case', 'chassis', 'cabinet']):
+        return "Case"
+    if any(term in lower_title for term in ['cooler', 'aio', 'fan', 'heatsink']):
+        return "Cooling"
+    if any(term in lower_title for term in ['monitor', 'display', 'screen']):
+        return "Monitor"
+    if any(term in lower_title for term in ['keyboard', 'mouse', 'headset']):
+        return "Accessories"
+    
+    return "Other"
+
+@app.route("/api/bing-search", methods=["GET"])
+def bing_search():
+    """Search products on Bing Shopping"""
+    query = request.args.get("query", "").strip()
+    limit = int(request.args.get("limit", MAX_SEARCH_RESULTS))
+
+    # Validate input
+    if not query or len(query) < 2:
+        return jsonify({
+            "success": False,
+            "error": "Query must be at least 2 characters",
+            "code": "QUERY_TOO_SHORT"
+        }), 400
+
+    try:
+        results = scrape_bing(query)
+        if not results:
+            return jsonify({
+                "success": False,
+                "error": "No results found",
+                "query": query
+            }), 404
+
+        # Format results consistently with other scrapers
+        formatted_results = []
+        for product in results[:limit]:
+            formatted_results.append({
+                "title": product.get("name", ""),
+                "price": product.get("price", 0),
+                "link": product.get("link", "#"),
+                "site": "Bing Shopping",
+                "seller": product.get("seller", ""),
+                "category": detect_category(product.get("name", ""))
+            })
+
+        return jsonify({
+            "success": True,
+            "count": len(formatted_results),
+            "results": formatted_results
+        })
+
+    except Exception as e:
+        logger.error(f"Bing search error: {str(e)}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": "Bing search failed",
+            "details": str(e)
+        }), 500
+
 @app.route("/api/search", methods=["GET"])
 def search():
     """Search products across e-commerce sites"""
@@ -113,29 +191,83 @@ def search():
 
     driver = None
     try:
-        driver = init_driver()
         results = []
-
-        # Scrape based on seller parameter
-        if seller in ["all", "amazon"]:
+        
+        # Scrape Bing if requested (doesn't need Selenium)
+        if seller in ["all", "bing"]:
             try:
-                amazon_results = scrape_amazon(driver, query)
-                if amazon_results:
-                    results.extend([
-                        {
-                            "title": p.get("title", ""),
-                            "price": p.get("price", 0),
-                            "link": p.get("link", "#"),
-                            "site": "Amazon",
-                            "brand": p.get("brand", ""),
-                            "category": p.get("category", "")
-                        }
-                        for p in amazon_results[:limit]
-                    ])
+                bing_results = scrape_bing(query)
+                results.extend([
+                    {
+                        "title": p.get("name", ""),
+                        "price": p.get("price", 0),
+                        "link": p.get("link", "#"),
+                        "site": "Bing Shopping",
+                        "seller": p.get("seller", ""),
+                        "category": detect_category(p.get("name", ""))
+                    }
+                    for p in bing_results[:limit]
+                ])
             except Exception as e:
-                logger.error(f"Amazon scrape failed: {str(e)}")
+                logger.error(f"Bing scrape failed: {str(e)}")
 
-        # Add similar blocks for other sellers (flipkart, mdcomputers)
+        # Scrape other sites with Selenium if requested
+        if seller in ["all", "amazon", "flipkart", "mdcomputers"]:
+            driver = init_driver()
+            
+            if seller in ["all", "amazon"]:
+                try:
+                    amazon_results = scrape_amazon(driver, query)
+                    if amazon_results:
+                        results.extend([
+                            {
+                                "title": p.get("title", ""),
+                                "price": p.get("price", 0),
+                                "link": p.get("link", "#"),
+                                "site": "Amazon",
+                                "brand": p.get("brand", ""),
+                                "category": p.get("category", "")
+                            }
+                            for p in amazon_results[:limit]
+                        ])
+                except Exception as e:
+                    logger.error(f"Amazon scrape failed: {str(e)}")
+
+            if seller in ["all", "flipkart"]:
+                try:
+                    flipkart_results = scrape_flipkart(driver, query)
+                    if flipkart_results:
+                        results.extend([
+                            {
+                                "title": p.get("title", ""),
+                                "price": p.get("price", 0),
+                                "link": p.get("link", "#"),
+                                "site": "Flipkart",
+                                "brand": p.get("brand", ""),
+                                "category": p.get("category", "")
+                            }
+                            for p in flipkart_results[:limit]
+                        ])
+                except Exception as e:
+                    logger.error(f"Flipkart scrape failed: {str(e)}")
+
+            if seller in ["all", "mdcomputers"]:
+                try:
+                    mdcomputers_results = scrape_mdcomputers(driver, query)
+                    if mdcomputers_results:
+                        results.extend([
+                            {
+                                "title": p.get("title", ""),
+                                "price": p.get("price", 0),
+                                "link": p.get("link", "#"),
+                                "site": "MD Computers",
+                                "brand": p.get("brand", ""),
+                                "category": p.get("category", "")
+                            }
+                            for p in mdcomputers_results[:limit]
+                        ])
+                except Exception as e:
+                    logger.error(f"MD Computers scrape failed: {str(e)}")
 
         if not results:
             return jsonify({

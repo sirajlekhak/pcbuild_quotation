@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Search, ExternalLink, ShoppingCart, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Search, ExternalLink, ShoppingCart, RefreshCw, Globe } from 'lucide-react';
 import { Component } from '../types';
 
 interface ProductSearchProps {
@@ -25,49 +25,103 @@ export default function ProductSearch({
   const [products, setProducts] = useState<ScrapedProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedSeller, setSelectedSeller] = useState<'all' | 'amazon' | 'flipkart' | 'mdcomputers'>('all');
+  const [selectedSeller, setSelectedSeller] = useState<'all' | 'amazon' | 'flipkart' | 'mdcomputers' | 'bing'>('all');
+  const [bingResults, setBingResults] = useState<ScrapedProduct[]>([]);
 
-  // Improved search with debouncing and error handling
-const searchProducts = useCallback(async (searchTerm: string) => {
+  // Fetch Bing results separately
+  const fetchBingResults = async (searchTerm: string) => {
   if (searchTerm.trim().length < 2) {
-    setProducts([]);
+    setBingResults([]);
     return;
   }
 
-  setLoading(true);
-  setError('');
-
   try {
     const response = await fetch(
-      `${apiBaseUrl}/search?query=${encodeURIComponent(searchTerm)}&seller=${selectedSeller}`
+      `${apiBaseUrl}/bing-search?query=${encodeURIComponent(searchTerm)}`
     );
-
+    
     const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(data.error || 'Search failed');
+      throw new Error(data.error || 'Bing search failed');
     }
 
-    // Transform backend response to frontend format
+    // Debug: Log the raw response
+    console.log('Bing API response:', data);
+
     const formattedProducts = data.results.map((item: any) => ({
-      title: item.title || 'Unknown Product',
+      title: item.title || item.name || 'Unknown Product', // Try both title and name
       price: typeof item.price === 'string' 
         ? parseFloat(item.price.replace(/[^\d.]/g, '')) 
         : item.price || 0,
       link: item.link || '#',
-      site: item.site || selectedSeller,
-      brand: item.brand || extractBrand(item.title),
-      category: item.category || detectCategory(item.title)
+      site: 'bing',
+      brand: item.brand || item.seller || extractBrand(item.title || item.name || ''),
+      category: item.category || detectCategory(item.title || item.name || ''),
+      warranty: item.warranty || '1 year',
+      seller: item.seller || '' // Make sure seller is included
     }));
 
-    setProducts(formattedProducts);
+    setBingResults(formattedProducts);
   } catch (err) {
-    setError(err instanceof Error ? err.message : 'Failed to search products');
-    setProducts([]);
-  } finally {
-    setLoading(false);
+    console.error('Bing search error:', err);
+    setBingResults([]);
   }
-}, [apiBaseUrl, selectedSeller]);
+};
+
+  // Improved search with debouncing and error handling
+  const searchProducts = useCallback(async (searchTerm: string) => {
+    if (searchTerm.trim().length < 2) {
+      setProducts([]);
+      setBingResults([]);
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // Fetch from other sellers if not Bing-only
+      if (selectedSeller !== 'bing') {
+        const response = await fetch(
+          `${apiBaseUrl}/search?query=${encodeURIComponent(searchTerm)}&seller=${selectedSeller === 'all' ? 'amazon,flipkart,mdcomputers' : selectedSeller}`
+        );
+
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Search failed');
+        }
+
+        // Transform backend response to frontend format
+// In your searchProducts function, update the mapping:
+const formattedProducts = data.results.map((item: any) => ({
+  title: item.title || item.name || 'Unknown Product',
+  price: typeof item.price === 'string' 
+    ? parseFloat(item.price.replace(/[^\d.]/g, '')) 
+    : item.price || 0,
+  link: item.link || '#',
+  site: item.site || selectedSeller,
+  brand: item.brand || extractBrand(item.title || item.name || ''),
+  category: item.category || detectCategory(item.title || item.name || ''),
+  warranty: item.warranty || '1 year',
+  seller: item.seller || ''
+}));
+
+        setProducts(formattedProducts);
+      }
+
+      // Always fetch Bing results when selected
+      if (selectedSeller === 'all' || selectedSeller === 'bing') {
+        await fetchBingResults(searchTerm);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to search products');
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBaseUrl, selectedSeller]);
 
   // Debounced search effect
   useEffect(() => {
@@ -76,7 +130,18 @@ const searchProducts = useCallback(async (searchTerm: string) => {
     }, 500);
 
     return () => clearTimeout(debounceTimer);
-  }, [query, searchProducts]);
+  }, [query, searchProducts, selectedSeller]);
+
+  // Combine results based on selected seller
+  const combinedResults = useMemo(() => {
+    if (selectedSeller === 'bing') {
+      return bingResults;
+    }
+    if (selectedSeller === 'all') {
+      return [...products, ...bingResults];
+    }
+    return products;
+  }, [products, bingResults, selectedSeller]);
 
   // Helper functions
   const formatPrice = (price: string | number): number => {
@@ -133,7 +198,8 @@ const searchProducts = useCallback(async (searchTerm: string) => {
     const colors: Record<string, string> = {
       amazon: 'bg-orange-100 text-orange-800',
       flipkart: 'bg-blue-100 text-blue-800',
-      mdcomputers: 'bg-green-100 text-green-800'
+      mdcomputers: 'bg-green-100 text-green-800',
+      bing: 'bg-purple-100 text-purple-800'
     };
     return colors[seller?.toLowerCase() || ''] || 'bg-gray-100 text-gray-800';
   };
@@ -141,7 +207,10 @@ const searchProducts = useCallback(async (searchTerm: string) => {
   return (
     <div className="bg-white rounded-lg p-4 border border-gray-200">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold mb-2">Live Product Search</h3>
+        <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+          <Globe className="w-5 h-5" />
+          Live Product Search
+        </h3>
         
         <div className="flex flex-col md:flex-row gap-2">
           <div className="relative flex-1">
@@ -163,6 +232,7 @@ const searchProducts = useCallback(async (searchTerm: string) => {
             <option value="amazon">Amazon</option>
             <option value="flipkart">Flipkart</option>
             <option value="mdcomputers">MD Computers</option>
+            <option value="bing">Bing Shopping</option>
           </select>
         </div>
       </div>
@@ -176,9 +246,9 @@ const searchProducts = useCallback(async (searchTerm: string) => {
           <RefreshCw className="animate-spin mr-2" />
           <span>Searching...</span>
         </div>
-      ) : products.length > 0 ? (
+      ) : combinedResults.length > 0 ? (
         <div className="space-y-3 max-h-96 overflow-y-auto">
-          {products.map((product, index) => (
+          {combinedResults.map((product, index) => (
             <div key={index} className="p-3 border rounded hover:bg-gray-50">
               <div className="flex justify-between items-start">
                 <div>
@@ -196,6 +266,9 @@ const searchProducts = useCallback(async (searchTerm: string) => {
                   </div>
                   {product.brand && (
                     <div className="text-sm text-gray-600">Brand: {product.brand}</div>
+                  )}
+                  {product.site === 'bing' && product.seller && (
+                    <div className="text-sm text-gray-600">Seller: {product.seller}</div>
                   )}
                 </div>
                 <div className="flex flex-col gap-2">
