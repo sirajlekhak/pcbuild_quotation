@@ -491,96 +491,96 @@ const refreshComponents = async () => {
       </div>
 
       {/* Selected Components */}
-      {components.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-lg font-medium text-gray-800 mb-4">Selected Components</h3>
-          <div className="space-y-3">
-            {components.map((component) => (
-              <div key={`selected-${component.id}`} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                {editingComponentId === component.id ? (
-                  <div className="grid md:grid-cols-4 gap-3">
-                    <input
-                      type="text"
-                      value={editBuffer.name}
-                      onChange={(e) => setEditBuffer(prev => ({ ...prev, name: e.target.value }))}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                      placeholder="Component name"
-                    />
-                    <input
-                      type="number"
-                      value={editBuffer.price}
-                      onChange={(e) => setEditBuffer(prev => ({ ...prev, price: e.target.value }))}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                      placeholder="Price"
-                    />
-                    <input
-                      type="number"
-                      value={editBuffer.quantity}
-                      onChange={(e) => setEditBuffer(prev => ({ ...prev, quantity: e.target.value }))}
-                      className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                      placeholder="Quantity"
-                      min="1"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleSave(component.id)}
-                        className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditingComponentId(null)}
-                        className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                          {component.category}
-                        </span>
-                        <h4 className="font-medium text-gray-800">{component.name}</h4>
-                        {component.link && (
-                          <a
-                            href={component.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        {component.brand} • ₹{(component.price || 0).toLocaleString('en-IN')} × {component.quantity} = ₹{(calculateComponentTotal(component) || 0).toLocaleString('en-IN')}
-                        {component.warranty && <span className="ml-2">• Warranty: {component.warranty}</span>}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(component)}
-                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => removeComponent(component.id)}
-                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
+{components.length > 0 && (
+  <div className="mb-6">
+    <h3 className="text-lg font-medium text-gray-800 mb-4">Selected Components</h3>
+    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+      {components.map((component) => (
+        <div key={`selected-${component.id}`} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          {editingComponentId === component.id ? (
+            <div className="grid md:grid-cols-4 gap-3">
+              <input
+                type="text"
+                value={editBuffer.name}
+                onChange={(e) => setEditBuffer(prev => ({ ...prev, name: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                placeholder="Component name"
+              />
+              <input
+                type="number"
+                value={editBuffer.price}
+                onChange={(e) => setEditBuffer(prev => ({ ...prev, price: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                placeholder="Price"
+              />
+              <input
+                type="number"
+                value={editBuffer.quantity}
+                onChange={(e) => setEditBuffer(prev => ({ ...prev, quantity: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                placeholder="Quantity"
+                min="1"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleSave(component.id)}
+                  className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setEditingComponentId(null)}
+                  className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm"
+                >
+                  Cancel
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                    {component.category}
+                  </span>
+                  <h4 className="font-medium text-gray-800">{component.name}</h4>
+                  {component.link && (
+                    <a
+                      href={component.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  {component.brand} • ₹{(component.price || 0).toLocaleString('en-IN')} × {component.quantity} = ₹{(calculateComponentTotal(component) || 0).toLocaleString('en-IN')}
+                  {component.warranty && <span className="ml-2">• Warranty: {component.warranty}</span>}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleEdit(component)}
+                  className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => removeComponent(component.id)}
+                  className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      ))}
+    </div>
+  </div>
+)}
 
       {/* Live Product Search */}
       {showLiveSearch && (
