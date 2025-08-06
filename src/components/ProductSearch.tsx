@@ -18,6 +18,22 @@ interface ScrapedProduct {
   seller?: string;
 }
 
+const COMPUTER_BRANDS = [
+  'AMD', 'Intel', 'NVIDIA', 'ASUS', 'MSI', 'Gigabyte', 
+  'Corsair', 'Kingston', 'Samsung', 'WD', 'Seagate',
+  'Crucial', 'Thermaltake', 'EVGA', 'Zotac', 'PNY',
+  'HyperX', 'ADATA', 'Toshiba', 'HP', 'Dell', 'Lenovo',
+  'Cooler Master', 'Noctua', 'be quiet!', 'Fractal Design',
+  'NZXT', 'Lian Li', 'Phanteks', 'Silverstone', 'Antec',
+  'ASRock', 'Biostar', 'Sapphire', 'XFX', 'PowerColor',
+  'Inno3D', 'Galax', 'G.Skill', 'Team Group', 'Patriot',
+  'Seasonic', 'Corsair', 'EVGA', 'Super Flower', 'FSP',
+  'Deepcool', 'ARCTIC', 'EKWB', 'Logitech', 'Razer',
+  'SteelSeries', 'BenQ', 'Acer', 'LG', 'AOC', 'ViewSonic',
+  'Ducky', 'Varmilo', 'Keychron', 'HyperX', 'ROG',
+  'TUF Gaming', 'Predator', 'Alienware', 'OMEN'
+];
+
 export default function ProductSearch({ 
   onAddComponent, 
   apiBaseUrl = 'http://localhost:5001/api' 
@@ -30,7 +46,48 @@ export default function ProductSearch({
   const [bingResults, setBingResults] = useState<ScrapedProduct[]>([]);
   const [searchTriggered, setSearchTriggered] = useState(false);
 
-  // Fetch Bing results separately
+  const extractBrandFromTitle = (productTitle: string): string => {
+    if (!productTitle) return '';
+  
+    // First check for multi-word brands (longer names first)
+    const multiWordBrands = COMPUTER_BRANDS
+      .filter(brand => brand.includes(' '))
+      .sort((a, b) => b.length - a.length);
+    
+    for (const brand of multiWordBrands) {
+      if (new RegExp(`\\b${brand.replace(/[-\s]/g, '[-\s]?')}\\b`, 'i').test(productTitle)) {
+        return brand;
+      }
+    }
+  
+    // Then check single-word brands
+    const singleWordBrands = COMPUTER_BRANDS.filter(brand => !brand.includes(' '));
+    for (const brand of singleWordBrands) {
+      const brandRegex = brand.replace(/[-\s]/g, '[-\s]?');
+      if (new RegExp(`\\b${brandRegex}\\b`, 'i').test(productTitle)) {
+        return brand;
+      }
+    }
+  
+    // Special cases and alternative names
+    const specialCases: Record<string, string> = {
+      'rog': 'ASUS ROG',
+      'republic of gamers': 'ASUS ROG',
+      'tuf gaming': 'ASUS TUF Gaming',
+      'alienware': 'Dell Alienware',
+      'predator': 'Acer Predator',
+      'omen': 'HP OMEN'
+    };
+  
+    for (const [pattern, brand] of Object.entries(specialCases)) {
+      if (new RegExp(pattern, 'i').test(productTitle)) {
+        return brand;
+      }
+    }
+  
+    return '';
+  };
+
   const fetchBingResults = async (searchTerm: string) => {
     if (searchTerm.trim().length < 2) {
       setBingResults([]);
@@ -55,7 +112,7 @@ export default function ProductSearch({
           : item.price || 0,
         link: item.link || '#',
         site: 'bing',
-        brand: item.brand || item.seller || extractBrand(item.title || item.name || ''),
+        brand: item.brand || extractBrandFromTitle(item.title || item.name || ''),
         category: item.category || detectCategory(item.title || item.name || ''),
         warranty: item.warranty || '1 year',
         seller: item.seller || ''
@@ -68,7 +125,6 @@ export default function ProductSearch({
     }
   };
 
-  // Search function triggered by button click
   const handleSearch = useCallback(async () => {
     if (query.trim().length < 2) {
       setProducts([]);
@@ -82,7 +138,6 @@ export default function ProductSearch({
     setError('');
 
     try {
-      // Fetch from other sellers if not Bing-only
       if (selectedSeller !== 'bing') {
         const response = await fetch(
           `${apiBaseUrl}/search?query=${encodeURIComponent(query)}&seller=${selectedSeller === 'all' ? 'amazon,flipkart,mdcomputers' : selectedSeller}`
@@ -101,8 +156,8 @@ export default function ProductSearch({
             : item.price || 0,
           link: item.link || '#',
           site: item.site || selectedSeller,
-          brand: item.brand || extractBrand(item.title || item.name || ''),
-          category: item.category || detectCategory(item.title || item.name || ''),
+          brand: extractBrandFromTitle(item.title || item.name || ''),
+          category: detectCategory(item.title || item.name || ''),
           warranty: item.warranty || '1 year',
           seller: item.seller || ''
         }));
@@ -110,7 +165,6 @@ export default function ProductSearch({
         setProducts(formattedProducts);
       }
 
-      // Always fetch Bing results when selected
       if (selectedSeller === 'all' || selectedSeller === 'bing') {
         await fetchBingResults(query);
       }
@@ -122,7 +176,6 @@ export default function ProductSearch({
     }
   }, [apiBaseUrl, selectedSeller, query]);
 
-  // Combine results based on selected seller
   const combinedResults = useMemo(() => {
     if (!searchTriggered) return [];
     if (selectedSeller === 'bing') return bingResults;
@@ -130,7 +183,6 @@ export default function ProductSearch({
     return products;
   }, [products, bingResults, selectedSeller, searchTriggered]);
 
-  // Helper functions
   const formatPrice = (price: string | number): number => {
     if (typeof price === 'number') return price;
     if (typeof price === 'string') {
@@ -138,14 +190,6 @@ export default function ProductSearch({
       return isNaN(numericValue) ? 0 : numericValue;
     }
     return 0;
-  };
-
-  const extractBrand = (productName: string): string => {
-    const brands = ['AMD', 'Intel', 'NVIDIA', 'ASUS', 'MSI', 'Gigabyte', 'Corsair', 'Kingston', 'Samsung', 'WD', 'Seagate'];
-    const foundBrand = brands.find(brand => 
-      productName.toLowerCase().includes(brand.toLowerCase())
-    );
-    return foundBrand || 'Unknown';
   };
 
   const detectCategory = (title: string): string => {
@@ -170,7 +214,7 @@ export default function ProductSearch({
     const component: Omit<Component, 'id' | 'quantity'> = {
       category: product.category || detectCategory(product.title),
       name: product.title,
-      brand: product.brand || extractBrand(product.title),
+      brand: product.brand || extractBrandFromTitle(product.title),
       price: formatPrice(product.price),
       link: product.link,
       warranty: product.warranty || '1 year'
@@ -248,6 +292,11 @@ export default function ProductSearch({
                     <span className={`text-xs px-2 py-1 rounded ${getSellerColor(product.site)}`}>
                       {product.site?.toUpperCase() || 'STORE'}
                     </span>
+                    {product.brand && (
+                      <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-800">
+                        {product.brand}
+                      </span>
+                    )}
                     <span className="text-sm text-gray-500">
                       {product.category || detectCategory(product.title)}
                     </span>
@@ -256,8 +305,8 @@ export default function ProductSearch({
                   <div className="text-lg font-bold text-green-600">
                     ₹{formatPrice(product.price).toLocaleString('en-IN')}
                   </div>
-                  {product.brand && (
-                    <div className="text-sm text-gray-600">Brand: {product.brand}</div>
+                  {product.warranty && (
+                    <div className="text-sm text-gray-600">Warranty: {product.warranty}</div>
                   )}
                   {product.site === 'bing' && product.seller && (
                     <div className="text-sm text-gray-600">Seller: {product.seller}</div>

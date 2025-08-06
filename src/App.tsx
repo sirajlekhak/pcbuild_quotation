@@ -31,7 +31,7 @@ function App() {
   const [gstRate, setGstRate] = useState(18);
   const [discountRate, setDiscountRate] = useState(0);
   const [notes, setNotes] = useState(`• All prices are inclusive of GST
-• This quotation is valid for 30 days from the date of issue
+• This quotation is valid for 07 days from the date of issue
 • Warranty terms as mentioned for individual components
 • Installation and setup service available
 • Payment terms: 50% advance, 50% on delivery`);
