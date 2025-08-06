@@ -5,8 +5,16 @@ import ComponentSelector from './components/ComponentSelector';
 import QuotationSettings from './components/QuotationSettings';
 import QuotationPreview from './components/QuotationPreview';
 import { Component, Customer, CompanyInfo } from './types';
-import { generatePDF, printQuotation, shareQuotation } from './utils/pdfGenerator';
 import logo from './assets/logo.jpg';
+
+// Define the type for history items
+interface QuotationHistoryItem {
+  id: string;
+  date: string;
+  customer: Customer;
+  quotationNumber: string;
+  pdfData: string;
+}
 
 // Default company information
 const DEFAULT_COMPANY_INFO: CompanyInfo = {
@@ -38,56 +46,79 @@ function App() {
 
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO);
   const [isLoading, setIsLoading] = useState(false);
-
-
+  const [quotationHistory, setQuotationHistory] = useState<QuotationHistoryItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const isQuotationReady = customer.name && customer.phone && components.length > 0;
 
-  // Enhanced PDF generation with company info
-  const handleGeneratePDF = async () => {
+  // Load history from localStorage on component mount
+  useEffect(() => {
+    const loadHistory = () => {
+      try {
+        const savedHistory = localStorage.getItem('quotationHistory');
+        if (savedHistory) {
+          const parsed = JSON.parse(savedHistory);
+          // Validate the stored data structure
+          const validHistory = parsed.filter((item: any) => 
+            item && 
+            item.id && 
+            item.date && 
+            item.customer && 
+            item.quotationNumber && 
+            item.pdfData
+          );
+          setQuotationHistory(validHistory);
+        }
+      } catch (error) {
+        console.error('Failed to load quotation history:', error);
+        localStorage.removeItem('quotationHistory');
+      }
+    };
+
+    loadHistory();
+  }, []);
+
+  // Save quotation to history
+  const saveQuotationToHistory = (pdfData: string) => {
     try {
-      setIsLoading(true);
-      await generatePDF({
-        customer,
-        components,
-        gstRate,
-        discountRate,
-        notes,
-        companyInfo
-      });
+      const newHistoryItem: QuotationHistoryItem = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        customer: { ...customer },
+        quotationNumber: `QUO-${Date.now().toString().slice(-6)}`,
+        pdfData
+      };
+
+      const updatedHistory = [newHistoryItem, ...quotationHistory].slice(0, 50); // Keep last 50 items
+      setQuotationHistory(updatedHistory);
+      localStorage.setItem('quotationHistory', JSON.stringify(updatedHistory));
     } catch (error) {
-      console.error('Error generating PDF:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Failed to save quotation to history:', error);
     }
   };
 
-  // Enhanced print function with company info
-  const handlePrintQuotation = () => {
-    printQuotation({
-      customer,
-      components,
-      gstRate,
-      discountRate,
-      notes,
-      companyInfo
-    });
-  };
+  // Filter history with safe property access
+  const filteredHistory = quotationHistory.filter(item => {
+    if (!item || !item.customer || !item.quotationNumber) return false;
+    
+    const searchLower = searchTerm.toLowerCase();
+    const customerName = item.customer.name?.toLowerCase() || '';
+    const customerPhone = item.customer.phone || '';
+    const quotationNumber = item.quotationNumber.toLowerCase();
 
-  // Enhanced share function with company info
-  const handleShareQuotation = async () => {
+    return (
+      customerName.includes(searchLower) ||
+      customerPhone.includes(searchTerm) ||
+      quotationNumber.includes(searchLower)
+    );
+  });
+
+  const handleGeneratePDF = async () => {
     try {
       setIsLoading(true);
-      await shareQuotation({
-        customer,
-        components,
-        gstRate,
-        discountRate,
-        notes,
-        companyInfo
-      });
+      // This would be handled by the QuotationPreview component
     } catch (error) {
-      console.error('Error sharing quotation:', error);
+      console.error('Error generating PDF:', error);
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +132,6 @@ function App() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-4">
-                {/* Company Logo */}
                 <img 
                   src={companyInfo.logo} 
                   alt={`${companyInfo.name} Logo`} 
@@ -158,10 +188,13 @@ function App() {
                 discountRate={discountRate}
                 notes={notes}
                 onGeneratePDF={handleGeneratePDF}
-                onPrint={handlePrintQuotation}
-                onShare={handleShareQuotation}
                 isLoading={isLoading}
                 companyInfo={companyInfo}
+                history={quotationHistory}
+                onSaveHistory={saveQuotationToHistory}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                filteredHistory={filteredHistory}
               />
             ) : (
               <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100 text-center">

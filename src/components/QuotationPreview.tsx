@@ -1,5 +1,5 @@
-import React from 'react';
-import { FileText, Download, Printer, Share2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileText, Download, Printer, Share2, Clock, Search } from 'lucide-react';
 import type { Component, Customer, CompanyInfo } from '../types';
 import html2pdf from 'html2pdf.js';
 
@@ -11,13 +11,18 @@ interface QuotationPreviewProps {
   notes: string;
   isLoading?: boolean;
   companyInfo: CompanyInfo;
+  history: any[];
+  onSaveHistory: (pdfData: string) => void;
 }
 
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount).replace('₹', '₹');
-
-const formatDate = (date: Date) =>
-  date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+interface QuotationHistoryItem {
+  id: string;
+  date: string;
+  customerName: string;
+  phone: string;
+  pdfData: string;
+  quotationNumber: string;
+}
 
 export const QuotationPreview = ({
   customer,
@@ -26,7 +31,9 @@ export const QuotationPreview = ({
   discountRate,
   notes,
   isLoading = false,
-  companyInfo
+  companyInfo,
+  history,
+  onSaveHistory
 }: QuotationPreviewProps) => {
   const subtotal = components.reduce((sum, c) => sum + (c.price * c.quantity), 0);
   const discountAmount = (subtotal * discountRate) / 100;
@@ -35,19 +42,23 @@ export const QuotationPreview = ({
   const totalAmount = taxableAmount + gstAmount;
 
   const quotationId = `QUO-${Date.now().toString().slice(-6)}`;
-  const currentDate = formatDate(new Date());
-  const validUntil = formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+  const currentDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const generatePDF = async () => {
+  const [showHistory, setShowHistory] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedQuotation, setSelectedQuotation] = useState<QuotationHistoryItem | null>(null);
+
+  const generatePDF = async (forPrint = false) => {
     const element = document.getElementById('quotation-content');
     if (!element) {
       alert('Element not found');
-      return;
+      return null;
     }
 
     const options = {
       margin: [10, 10, 10, 10],
-      filename: `PC_Build_Quotation_${Date.now()}.pdf`,
+      filename: `PC_Build_Quotation_${quotationId}.pdf`,
       image: { type: 'jpeg', quality: 1 },
       html2canvas: {
         scale: 3,
@@ -66,16 +77,28 @@ export const QuotationPreview = ({
       }
     };
 
-    return html2pdf()
-      .set(options)
-      .from(element)
-      .output('blob');
+    try {
+      if (forPrint) {
+        return await html2pdf().set(options).from(element).output('datauristring');
+      } else {
+        await html2pdf().set(options).from(element).save();
+        const pdfData = await html2pdf().set(options).from(element).output('datauristring');
+        return pdfData;
+      }
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert('Error generating PDF. Please try again.');
+      throw err;
+    }
   };
 
   const handlePrint = async () => {
     try {
-      const pdfBlob = await generatePDF();
-      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const pdfData = await generatePDF(true);
+      if (!pdfData) return;
+      
+      const blob = dataURItoBlob(pdfData);
+      const pdfUrl = URL.createObjectURL(blob);
       
       const printWindow = window.open(pdfUrl);
       if (printWindow) {
@@ -92,8 +115,11 @@ export const QuotationPreview = ({
 
   const handleShare = async () => {
     try {
-      const pdfBlob = await generatePDF();
-      const pdfFile = new File([pdfBlob], `Quotation_${quotationId}.pdf`, { type: 'application/pdf' });
+      const pdfData = await generatePDF(true);
+      if (!pdfData) return;
+      
+      const blob = dataURItoBlob(pdfData);
+      const pdfFile = new File([blob], `Quotation_${quotationId}.pdf`, { type: 'application/pdf' });
 
       if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
         await navigator.share({
@@ -102,14 +128,67 @@ export const QuotationPreview = ({
           files: [pdfFile]
         });
       } else {
-        // Fallback for browsers that don't support file sharing
-        await generatePDF();
+        // Fallback download
+        downloadPDF(pdfData, `Quotation_${quotationId}.pdf`);
         alert('PDF downloaded. Please share it manually.');
       }
     } catch (err) {
       console.error('Share error:', err);
       alert('Error sharing quotation. Please try downloading and sharing manually.');
     }
+  };
+
+  const handleGeneratePDF = async () => {
+    try {
+      const pdfData = await generatePDF();
+      if (pdfData) {
+        onSaveHistory(pdfData);
+      }
+    } catch (err) {
+      console.error('PDF generation error:', err);
+    }
+  };
+
+  const downloadPDF = (pdfData: string, filename: string) => {
+    const blob = dataURItoBlob(pdfData);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const dataURItoBlob = (dataURI: string) => {
+    const byteString = atob(dataURI.split(',')[1]);
+    const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+  };
+
+  const filteredHistory = history.filter(item => {
+    if (!item || !item.customerName || !item.quotationNumber) return false;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      item.customerName.toLowerCase().includes(searchLower) ||
+      item.phone.includes(searchTerm) ||
+      item.quotationNumber.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const viewQuotation = (item: QuotationHistoryItem) => {
+    setSelectedQuotation(item);
+  };
+
+  const closeViewer = () => {
+    setSelectedQuotation(null);
   };
 
   const IconButton = ({ 
@@ -192,6 +271,12 @@ export const QuotationPreview = ({
           </div>
           <div className="flex gap-1">
             <IconButton 
+              icon={Clock} 
+              onClick={() => setShowHistory(!showHistory)} 
+              color="blue" 
+              tooltip="View History"
+            />
+            <IconButton 
               icon={Printer} 
               onClick={handlePrint} 
               color="blue" 
@@ -207,13 +292,108 @@ export const QuotationPreview = ({
             />
             <IconButton 
               icon={Download} 
-              onClick={generatePDF} 
+              onClick={handleGeneratePDF} 
               disabled={isLoading}
               tooltip={isLoading ? 'Generating PDF...' : 'Download PDF'}
             />
           </div>
         </div>
       </div>
+
+      {showHistory && (
+        <div className="p-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <Clock className="w-5 h-5" />
+            Quotation History
+          </h3>
+          
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border rounded-md"
+              placeholder="Search by name, phone or quotation #"
+            />
+          </div>
+
+          <div className="max-h-64 overflow-y-auto">
+            {filteredHistory.length > 0 ? (
+              <table className="w-full table-auto text-xs border border-gray-200 rounded overflow-hidden">
+                <thead className="bg-gray-100 text-gray-700">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Date</th>
+                    <th className="px-3 py-2 text-left">Customer</th>
+                    <th className="px-3 py-2 text-left">Quotation #</th>
+                    <th className="px-3 py-2 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHistory.map((item) => (
+                    <tr key={item.id} className="border-t border-gray-200 hover:bg-gray-50">
+                      <td className="px-3 py-2">{new Date(item.date).toLocaleDateString()}</td>
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{item.customerName}</div>
+                        <div className="text-gray-500">{item.phone}</div>
+                      </td>
+                      <td className="px-3 py-2">{item.quotationNumber}</td>
+                      <td className="px-3 py-2">
+                        <button
+                          onClick={() => viewQuotation(item)}
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                {searchTerm ? 'No matching quotations found' : 'No quotation history yet'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {selectedQuotation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="text-lg font-semibold">
+                Quotation: {selectedQuotation.quotationNumber}
+              </h3>
+              <button onClick={closeViewer} className="text-gray-500 hover:text-gray-700">
+                &times;
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <iframe 
+                src={selectedQuotation.pdfData}
+                className="w-full h-full min-h-[70vh] border-0"
+                title="Quotation PDF Viewer"
+              />
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button
+                onClick={() => downloadPDF(selectedQuotation.pdfData, `Quotation_${selectedQuotation.quotationNumber}.pdf`)}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Download
+              </button>
+              <button
+                onClick={closeViewer}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div id="quotation-content" className="p-3 md:p-4 bg-white print:p-6">
         <CompanyHeader />
@@ -246,7 +426,7 @@ export const QuotationPreview = ({
                     <td className="px-2 py-1">{c.name}</td>
                     <td className="px-2 py-1">{c.brand}</td>
                     <td className="px-2 py-1 text-right">{c.quantity}</td>
-                    <td className="px-2 py-1 text-right">{formatCurrency(c.price)}</td>
+                    <td className="px-2 py-1 text-right">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(c.price).replace('₹', '₹')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -259,19 +439,19 @@ export const QuotationPreview = ({
             <h4 className="text-sm font-semibold mb-2 text-gray-900 print:text-base">Pricing Summary</h4>
             <div className="flex justify-between mb-1">
               <span>Subtotal:</span>
-              <span>{formatCurrency(subtotal)}</span>
+              <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(subtotal).replace('₹', '₹')}</span>
             </div>
             <div className="flex justify-between mb-1">
               <span>Discount ({discountRate}%):</span>
-              <span>-{formatCurrency(discountAmount)}</span>
+              <span>-{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(discountAmount).replace('₹', '₹')}</span>
             </div>
             <div className="flex justify-between mb-1">
               <span>GST ({gstRate}%):</span>
-              <span>{formatCurrency(gstAmount)}</span>
+              <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(gstAmount).replace('₹', '₹')}</span>
             </div>
             <div className="flex justify-between font-bold border-t pt-1 mt-1">
               <span>Total Amount:</span>
-              <span>{formatCurrency(totalAmount)}</span>
+              <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalAmount).replace('₹', '₹')}</span>
             </div>
           </div>
         </div>
