@@ -593,7 +593,7 @@ const refreshComponents = async () => {
           <ProductSearch 
           onAddComponent={(componentData) => {
             if (!componentData.name?.trim()) {
-              setError('Component name is required');
+              setError('Component name is required')
               return;
             }
             if (componentData.price === undefined || componentData.price <= 0) {
@@ -800,7 +800,7 @@ const refreshComponents = async () => {
         ))}
     </div>
   </div>
-)};
+)}
 
     </div>
   );

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { FileText, Download, Printer, Share2, Clock, Search } from 'lucide-react';
-import type { Component, Customer, CompanyInfo } from '../types';
 import html2pdf from 'html2pdf.js';
 import { PDFInfo } from '@/utils/pdfStorage';
 // Add this import with other imports
@@ -349,12 +348,6 @@ const handleGeneratePDF = async () => {
           </div>
           <div className="flex gap-1">
             <IconButton 
-              icon={Clock} 
-              onClick={() => setShowHistory(!showHistory)} 
-              color="blue" 
-              tooltip="View History"
-            />
-            <IconButton 
               icon={Printer} 
               onClick={handlePrint} 
               color="blue" 
@@ -378,64 +371,7 @@ const handleGeneratePDF = async () => {
         </div>
       </div>
 
-      {showHistory && (
-        <div className="p-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Clock className="w-5 h-5" />
-            {isInvoiceMode ? 'Invoice History' : 'Quotation History'}
-          </h3>
-          
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-md"
-              placeholder="Search by name, phone or document #"
-            />
-          </div>
-
-          <div className="max-h-64 overflow-y-auto">
-            {filteredHistory.length > 0 ? (
-              <table className="w-full table-auto text-xs border border-gray-200 rounded overflow-hidden">
-                <thead className="bg-gray-100 text-gray-700">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Date</th>
-                    <th className="px-3 py-2 text-left">Customer</th>
-                    <th className="px-3 py-2 text-left">Document #</th>
-                    <th className="px-3 py-2 text-left">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredHistory.map((item) => (
-                    <tr key={item.id} className="border-t border-gray-200 hover:bg-gray-50">
-                      <td className="px-3 py-2">{new Date(item.date).toLocaleDateString()}</td>
-                      <td className="px-3 py-2">
-                        <div className="font-medium">{item.customerName}</div>
-                        <div className="text-gray-500">{item.phone}</div>
-                      </td>
-                      <td className="px-3 py-2">{item.quotationNumber}</td>
-                      <td className="px-3 py-2">
-                        <button
-                          onClick={() => viewQuotation(item)}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
-                        >
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="text-center py-4 text-gray-500">
-                {searchTerm ? 'No matching documents found' : 'No history yet'}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      
 
       {selectedQuotation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
