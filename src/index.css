@@ -1,3 +1,23 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* Add to your global CSS or index.css */
+.history-btn {
+  transition: all 0.2s ease;
+}
+
+.history-btn:hover {
+  transform: translateY(-1px);
+}
+
+.history-btn:active {
+  transform: translateY(1px);
+}
+
+/* Add to your global CSS */
+.history-badge {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+button:hover .history-badge {
+  transform: scale(1.1);
+}

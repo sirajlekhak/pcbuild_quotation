@@ -8,6 +8,33 @@ export const fetchComponents = async () => {
   return response.json();
 };
 
+export const saveQuotation = async (data: {
+  pdfData: string;
+  customerName: string;
+  phone: string;
+  quotationNumber: string;
+}) => {
+  const response = await api.post('/quotations', data);
+  return response.data;
+};
+
+export const getQuotations = async () => {
+  const response = await api.get('/quotations');
+  return response.data.quotations;
+};
+
+export const getQuotationPdf = async (id: string) => {
+  const response = await api.get(`/quotations/${id}`, {
+    responseType: 'blob',
+  });
+  return URL.createObjectURL(response.data);
+};
+
+export const deleteQuotation = async (id: string) => {
+  const response = await api.delete(`/quotations/${id}`);
+  return response.data;
+};
+
 export const addComponent = async (component: Omit<Component, 'id'>) => {
   const response = await fetch(`${API_BASE}/components`, {
     method: 'POST',

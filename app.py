@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Blueprint, Flask, request, jsonify, send_file
 from flask_cors import CORS
 import json
 import os
@@ -6,23 +6,20 @@ import logging
 from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
-from typing import Dict, List, Optional
-from backend.scrapers.bing import scrape_bing
+from typing import Dict, List, Optional, Union
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.core.os_manager import ChromeType
+import base64
+
 
 # Import scrapers
+from backend.scrapers.bing import scrape_bing
 from backend.scrapers.amazon import scrape_amazon
 from backend.scrapers.flipkart import scrape_flipkart
 from backend.scrapers.mdcomputers import scrape_mdcomputers
-
-# Add this at the top of your Flask app
-DATA_DIR = Path(__file__).parent / 'data'
-DATA_DIR.mkdir(exist_ok=True)
-COMPANY_INFO_PATH = DATA_DIR / 'companyinfo.json'
 
 # Configure logging
 logging.basicConfig(
@@ -31,8 +28,162 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+# Proper CORS configuration
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "http://localhost:5173",
+        "supports_credentials": True,
+        "allow_headers": ["Content-Type", "Authorization"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    }
+})
+
+
+
+# Handle OPTIONS requests for all API routes
+@app.route('/api/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    return '', 204
+
+# ====================== PDF Blueprint ======================
+pdf_bp = Blueprint('pdf', __name__)
+PDF_INFO_PATH = Path(__file__).parent / 'backend' / 'data' / 'pdfinfo.json'
+
+@pdf_bp.route('/api/save_pdf_info', methods=['POST', 'OPTIONS'])
+def save_pdf_info():
+    if request.method == 'OPTIONS':
+        return '', 204
+        
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        # Ensure directory exists
+        PDF_INFO_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+        # Load existing data
+        existing_data = []
+        if PDF_INFO_PATH.exists():
+            with open(PDF_INFO_PATH, 'r') as f:
+                try:
+                    existing_data = json.load(f)
+                    if not isinstance(existing_data, list):
+                        existing_data = []
+                except json.JSONDecodeError:
+                    existing_data = []
+
+        # Add or update entry
+        if 'id' in data:
+            # Update existing entry if ID exists
+            found = False
+            for i, item in enumerate(existing_data):
+                if item.get('id') == data['id']:
+                    existing_data[i] = data
+                    found = True
+                    break
+            if not found:
+                existing_data.append(data)
+        else:
+            # Add new entry with generated ID
+            data['id'] = str(uuid4())
+            existing_data.append(data)
+
+        # Write back to file
+        with open(PDF_INFO_PATH, 'w') as f:
+            json.dump(existing_data, f, indent=2)
+
+        return jsonify({'success': True, 'id': data['id']})
+
+    except Exception as e:
+        logger.error(f"Error saving PDF info: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@pdf_bp.route('/api/load_pdf_info', methods=['GET', 'OPTIONS'])
+def load_pdf_info():
+    if request.method == 'OPTIONS':
+        return '', 204
+        
+    try:
+        # Ensure directory exists
+        PDF_INFO_PATH.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Return empty array if file doesn't exist
+        if not PDF_INFO_PATH.exists():
+            return jsonify([])
+            
+        with open(PDF_INFO_PATH, 'r') as f:
+            try:
+                data = json.load(f)
+                
+                # Ensure we always return an array
+                if not isinstance(data, list):
+                    data = []
+                
+                # Validate and transform each item
+                validated_data = []
+                for item in data:
+                    # Skip invalid items
+                    if not isinstance(item, dict):
+                        continue
+                        
+                    # Ensure required fields exist
+                    validated_item = {
+                        'id': item.get('id') or str(uuid4()),
+                        'date': item.get('date') or datetime.now().isoformat(),
+                        'customer': {
+                            'name': item.get('customer', {}).get('name') or '',
+                            'phone': item.get('customer', {}).get('phone') or '',
+                            'email': item.get('customer', {}).get('email') or '',
+                            'address': item.get('customer', {}).get('address') or ''
+                        },
+                        'components': [],
+                        'gstRate': float(item.get('gstRate', 18)),
+                        'discountRate': float(item.get('discountRate', 0)),
+                        'notes': item.get('notes', ''),
+                        'pdfData': item.get('pdfData', ''),
+                        'type': item.get('type', 'quotation')
+                    }
+                    
+                    # Validate components
+                    if isinstance(item.get('components'), list):
+                        for component in item['components']:
+                            if isinstance(component, dict):
+                                validated_component = {
+                                    'id': component.get('id') or str(uuid4()),
+                                    'name': component.get('name') or '',
+                                    'brand': component.get('brand') or '',
+                                    'price': float(component.get('price', 0)),
+                                    'quantity': int(component.get('quantity', 1)),
+                                    'category': component.get('category') or 'Other'
+                                }
+                                validated_item['components'].append(validated_component)
+                    
+                    validated_data.append(validated_item)
+                
+                return jsonify(validated_data)
+                
+            except json.JSONDecodeError:
+                return jsonify([])
+                
+    except Exception as e:
+        logger.error(f"Error loading PDF info: {str(e)}", exc_info=True)
+        return jsonify({
+            'error': 'Failed to load PDF info',
+            'details': str(e)
+        }), 500
+    
+# Register the blueprint
+app.register_blueprint(pdf_bp)
+
+# ====================== Quotation Endpoints ======================
+DATA_DIR = Path(__file__).parent / 'data'
+DATA_DIR.mkdir(exist_ok=True)
+COMPANY_INFO_PATH = DATA_DIR / 'companyinfo.json'
+QUOTATIONS_DIR = DATA_DIR / 'quotations'
+QUOTATIONS_DIR.mkdir(exist_ok=True)
 
 # Constants
 COMPONENTS_FILE = Path(__file__).parent / 'backend' / 'data' / 'components.json'
@@ -40,32 +191,54 @@ MAX_SEARCH_RESULTS = 50
 DEFAULT_HEADLESS = True
 
 class Component:
-    """Component data model"""
+    """Component data model with validation"""
     def __init__(self, data: Dict):
         self.id: str = data.get('id', str(uuid4()))
         self.category: str = data['category']
         self.name: str = data['name']
         self.brand: str = data['brand']
-        self.price: float = float(data['price'])
+        try:
+            self.price: float = float(data['price'])
+            if self.price <= 0:
+                raise ValueError("Price must be positive")
+        except (ValueError, TypeError):
+            raise ValueError("Invalid price format")
         self.warranty: str = data.get('warranty', '')
         self.created_at: str = data.get('created_at', datetime.now().isoformat())
         self.updated_at: str = datetime.now().isoformat()
 
+    def to_dict(self) -> Dict:
+        return {
+            'id': self.id,
+            'category': self.category,
+            'name': self.name,
+            'brand': self.brand,
+            'price': self.price,
+            'warranty': self.warranty,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at
+        }
+
 def init_driver():
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")  # Modern headless mode
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
     
-    # Specific version matching Chrome 138
-    driver = webdriver.Chrome(
-        service=Service(
-            ChromeDriverManager(
-                chrome_type=ChromeType.GOOGLE,
-                driver_version="138.0.7204.184"
-            ).install()
-        ),
-        options=options
-    )
-    return driver
+    try:
+        driver = webdriver.Chrome(
+            service=Service(
+                ChromeDriverManager(
+                    chrome_type=ChromeType.GOOGLE,
+                    driver_version="138.0.7204.184"
+                ).install()
+            ),
+            options=options
+        )
+        return driver
+    except Exception as e:
+        logger.error(f"Failed to initialize ChromeDriver: {str(e)}")
+        raise
 
 def load_components() -> List[Dict]:
     """Load components from JSON file with error handling"""
@@ -75,7 +248,7 @@ def load_components() -> List[Dict]:
         
         with open(COMPONENTS_FILE, 'r') as f:
             components = json.load(f)
-            return [Component(comp).__dict__ for comp in components]
+            return [Component(comp).to_dict() for comp in components]
             
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON in components file: {str(e)}")
@@ -102,28 +275,246 @@ def detect_category(title: str) -> str:
     
     lower_title = title.lower()
     
-    if any(term in lower_title for term in ['i3', 'i5', 'i7', 'i9', 'ryzen', 'core', 'pentium', 'celeron', 'xeon']):
-        return "CPU"
-    if any(term in lower_title for term in ['rtx', 'gtx', 'radeon', 'arc', 'gpu', 'graphics card']):
-        return "GPU"
-    if any(term in lower_title for term in ['ddr3', 'ddr4', 'ddr5', 'ram', 'memory']):
-        return "RAM"
-    if any(term in lower_title for term in ['motherboard', 'mainboard', 'h61', 'b450', 'x570', 'z690']):
-        return "Motherboard"
-    if any(term in lower_title for term in ['ssd', 'nvme', 'hdd', 'hard disk', 'm.2']):
-        return "Storage"
-    if any(term in lower_title for term in ['psu', 'power supply', 'smps']):
-        return "PSU"
-    if any(term in lower_title for term in ['case', 'chassis', 'cabinet']):
-        return "Case"
-    if any(term in lower_title for term in ['cooler', 'aio', 'fan', 'heatsink']):
-        return "Cooling"
-    if any(term in lower_title for term in ['monitor', 'display', 'screen']):
-        return "Monitor"
-    if any(term in lower_title for term in ['keyboard', 'mouse', 'headset']):
-        return "Accessories"
+    category_mapping = {
+        "CPU": ['i3', 'i5', 'i7', 'i9', 'ryzen', 'core', 'pentium', 'celeron', 'xeon'],
+        "GPU": ['rtx', 'gtx', 'radeon', 'arc', 'gpu', 'graphics card'],
+        "RAM": ['ddr3', 'ddr4', 'ddr5', 'ram', 'memory'],
+        "Motherboard": ['motherboard', 'mainboard', 'h61', 'b450', 'x570', 'z690'],
+        "Storage": ['ssd', 'nvme', 'hdd', 'hard disk', 'm.2'],
+        "PSU": ['psu', 'power supply', 'smps'],
+        "Case": ['case', 'chassis', 'cabinet'],
+        "Cooling": ['cooler', 'aio', 'fan', 'heatsink'],
+        "Monitor": ['monitor', 'display', 'screen'],
+        "Accessories": ['keyboard', 'mouse', 'headset']
+    }
+    
+    for category, terms in category_mapping.items():
+        if any(term in lower_title for term in terms):
+            return category
     
     return "Other"
+
+# ====================== Quotation History Endpoints ======================
+
+@app.route('/api/quotations', methods=['POST', 'OPTIONS'])
+def save_quotation():
+    """Save a new quotation PDF with metadata"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
+    try:
+        data = request.get_json()
+        if not data or 'pdfData' not in data:
+            response = jsonify({'error': 'No PDF data provided'})
+            response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            return response, 400
+        
+        # Validate required fields
+        required_fields = ['customerName', 'phone', 'quotationNumber']
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            response = jsonify({
+                'error': 'Missing required fields',
+                'missing': missing_fields
+            })
+            response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            return response, 400
+
+        # Generate unique ID for the quotation
+        quotation_id = str(uuid4())
+        filename = f"{quotation_id}.pdf"
+        filepath = QUOTATIONS_DIR / filename
+
+        # Save PDF file (convert from base64)
+        pdf_data = data['pdfData'].split(',')[1]  # Remove data URI prefix
+        with open(filepath, 'wb') as f:
+            f.write(base64.b64decode(pdf_data))
+
+        # Save metadata
+        quotation_data = {
+            'id': quotation_id,
+            'date': datetime.now().isoformat(),
+            'customerName': data['customerName'],
+            'phone': data['phone'],
+            'quotationNumber': data['quotationNumber'],
+            'filename': filename
+        }
+
+        # Save metadata to JSON file
+        metadata_file = QUOTATIONS_DIR / 'metadata.json'
+        metadata = []
+        if metadata_file.exists():
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
+        metadata.append(quotation_data)
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=2)
+
+        response = jsonify({
+            'success': True,
+            'quotation': quotation_data
+        })
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response, 201
+
+    except Exception as e:
+        logger.error(f"Error saving quotation: {str(e)}")
+        response = jsonify({
+            'error': 'Failed to save quotation',
+            'details': str(e)
+        })
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response, 500
+
+@app.route('/api/quotations', methods=['GET', 'OPTIONS'])
+def get_quotations():
+    """Get all saved quotations with metadata"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
+    try:
+        metadata_file = QUOTATIONS_DIR / 'metadata.json'
+        if not metadata_file.exists():
+            response = jsonify({'quotations': []})
+            response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            return response
+
+        with open(metadata_file, 'r') as f:
+            metadata = json.load(f)
+
+        # Sort by date (newest first)
+        metadata.sort(key=lambda x: x['date'], reverse=True)
+
+        response = jsonify({
+            'success': True,
+            'count': len(metadata),
+            'quotations': metadata
+        })
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
+
+    except Exception as e:
+        logger.error(f"Error getting quotations: {str(e)}")
+        response = jsonify({
+            'error': 'Failed to retrieve quotations',
+            'details': str(e)
+        })
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response, 500
+
+@app.route('/api/quotations/<quotation_id>', methods=['GET', 'OPTIONS'])
+def get_quotation(quotation_id):
+    """Get a specific quotation PDF file"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
+    try:
+        # First find the metadata
+        metadata_file = QUOTATIONS_DIR / 'metadata.json'
+        if not metadata_file.exists():
+            response = jsonify({'error': 'No quotations found'})
+            response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            return response, 404
+
+        with open(metadata_file, 'r') as f:
+            metadata = json.load(f)
+
+        quotation = next((q for q in metadata if q['id'] == quotation_id), None)
+        if not quotation:
+            response = jsonify({'error': 'Quotation not found'})
+            response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            return response, 404
+
+        # Return the PDF file
+        filepath = QUOTATIONS_DIR / quotation['filename']
+        if not filepath.exists():
+            response = jsonify({'error': 'PDF file not found'})
+            response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            return response, 404
+
+        response = send_file(
+            filepath,
+            mimetype='application/pdf',
+            as_attachment=False
+        )
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
+
+    except Exception as e:
+        logger.error(f"Error getting quotation {quotation_id}: {str(e)}")
+        response = jsonify({
+            'error': 'Failed to retrieve quotation',
+            'details': str(e)
+        })
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response, 500
+
+@app.route('/api/quotations/<quotation_id>', methods=['DELETE', 'OPTIONS'])
+def delete_quotation(quotation_id):
+    """Delete a quotation and its metadata"""
+    if request.method == 'OPTIONS':
+        return '', 204
+        
+    try:
+        metadata_file = QUOTATIONS_DIR / 'metadata.json'
+        if not metadata_file.exists():
+            response = jsonify({'error': 'No quotations found'})
+            response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            return response, 404
+
+        with open(metadata_file, 'r') as f:
+            metadata = json.load(f)
+
+        # Find and remove the quotation
+        quotation = next((q for q in metadata if q['id'] == quotation_id), None)
+        if not quotation:
+            response = jsonify({'error': 'Quotation not found'})
+            response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            return response, 404
+
+        # Delete the PDF file
+        filepath = QUOTATIONS_DIR / quotation['filename']
+        if filepath.exists():
+            filepath.unlink()
+
+        # Update metadata
+        updated_metadata = [q for q in metadata if q['id'] != quotation_id]
+        with open(metadata_file, 'w') as f:
+            json.dump(updated_metadata, f, indent=2)
+
+        response = jsonify({
+            'success': True,
+            'message': 'Quotation deleted successfully'
+        })
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
+
+    except Exception as e:
+        logger.error(f"Error deleting quotation {quotation_id}: {str(e)}")
+        response = jsonify({
+            'error': 'Failed to delete quotation',
+            'details': str(e)
+        })
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response, 500
+
+# ====================== Existing Endpoints ======================
 
 @app.route("/api/bing-search", methods=["GET"])
 def bing_search():
@@ -538,8 +929,7 @@ def handle_company_info():
             "error": str(e),
             "path": str(company_file)
         }), 500
-      # In your Flask app (app.py), add this debug line:
-print("Absolute path to companyinfo.json:", str(Path(__file__).parent / 'data' / 'companyinfo.json'))   
+
 if __name__ == "__main__":
     # Verify ChromeDriver can be initialized at startup
     try:

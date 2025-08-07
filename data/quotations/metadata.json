@@ -1,0 +1,68 @@
+[
+  {
+    "id": "abc123",
+    "quotationNumber": "QUO-001",
+    "date": "2025-08-06",
+    "customerName": "John Doe",
+    "phone": "9876543210",
+    "email": "john@example.com",
+    "address": "123 Market St",
+    "gstRate": 18,
+    "discountRate": 5,
+    "notes": "Thank you for your business!",
+    "components": [
+      {
+        "category": "CPU",
+        "name": "Intel i5",
+        "price": 15000,
+        "quantity": 1
+      },
+      {
+        "category": "GPU",
+        "name": "NVIDIA GTX 1660",
+        "price": 25000,
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "id": "d188db33-2d7e-4b04-adf6-33e2805bf25d",
+    "date": "2025-08-07T18:30:07.409495",
+    "customerName": "SIRAJ LEKHAK",
+    "phone": "9339035552",
+    "quotationNumber": "QUO-3c5d01d6",
+    "filename": "d188db33-2d7e-4b04-adf6-33e2805bf25d.pdf"
+  },
+  {
+    "id": "db583f95-225b-4d2e-bfc5-d8474b7720e1",
+    "date": "2025-08-07T18:31:42.057990",
+    "customerName": "SIRAJ LEKHAK",
+    "phone": "93390266545654",
+    "quotationNumber": "QUO-bc347fbf",
+    "filename": "db583f95-225b-4d2e-bfc5-d8474b7720e1.pdf"
+  },
+  {
+    "id": "9e36abb3-1026-45a8-8a8f-8073b471d649",
+    "date": "2025-08-07T18:32:31.819839",
+    "customerName": "SIRAJ LEKHAK",
+    "phone": "93390266545654",
+    "quotationNumber": "QUO-a8a185ef",
+    "filename": "9e36abb3-1026-45a8-8a8f-8073b471d649.pdf"
+  },
+  {
+    "id": "97ec211f-1a40-4146-84bf-99cd0afd3e4c",
+    "date": "2025-08-07T18:59:11.707224",
+    "customerName": "SIRAJ LEKHAK",
+    "phone": "9339035552",
+    "quotationNumber": "QUO-3688923a",
+    "filename": "97ec211f-1a40-4146-84bf-99cd0afd3e4c.pdf"
+  },
+  {
+    "id": "2f9134c9-a1e7-4edd-b1aa-b44b2b8e0fc5",
+    "date": "2025-08-07T19:04:19.978532",
+    "customerName": "SIRAJ LEKHAK",
+    "phone": "9339035552",
+    "quotationNumber": "QUO-b7602824",
+    "filename": "2f9134c9-a1e7-4edd-b1aa-b44b2b8e0fc5.pdf"
+  }
+]

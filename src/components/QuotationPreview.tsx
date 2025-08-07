@@ -1,19 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FileText, Download, Printer, Share2, Clock, Search } from 'lucide-react';
 import type { Component, Customer, CompanyInfo } from '../types';
 import html2pdf from 'html2pdf.js';
-
-interface QuotationPreviewProps {
-  customer: Customer;
-  components: Component[];
-  gstRate: number;
-  discountRate: number;
-  notes: string;
-  isLoading?: boolean;
-  companyInfo: CompanyInfo;
-  history: any[];
-  onSaveHistory: (pdfData: string) => void;
-}
+import { PDFInfo } from '@/utils/pdfStorage';
+// Add this import with other imports
+import { savePDFInfo } from '@/utils/pdfStorage';
 
 interface QuotationHistoryItem {
   id: string;
@@ -22,6 +13,14 @@ interface QuotationHistoryItem {
   phone: string;
   pdfData: string;
   quotationNumber: string;
+  type?: 'quotation' | 'invoice';
+  totalAmount?: number;
+}
+
+interface PDFGenerationOptions {
+  filename: string;
+  forPrint?: boolean;
+  forShare?: boolean;
 }
 
 export const QuotationPreview = ({
@@ -35,119 +34,182 @@ export const QuotationPreview = ({
   history,
   onSaveHistory
 }: QuotationPreviewProps) => {
-  const subtotal = components.reduce((sum, c) => sum + (c.price * c.quantity), 0);
-  const discountAmount = (subtotal * discountRate) / 100;
-  const taxableAmount = subtotal - discountAmount;
-  const gstAmount = (taxableAmount * gstRate) / 100;
-  const totalAmount = taxableAmount + gstAmount;
+  const [isInvoiceMode, setIsInvoiceMode] = useState(false);
+  
+  // Generate consistent IDs for both modes
+const [documentId] = useState(() => {
+  const now = new Date();
+  const datePart = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}`;
+  const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return {
+    quotation: `QUO-${datePart}-${randomPart}`,
+    invoice: `INV-${datePart}-${randomPart}`
+  };
+});
 
-  const quotationId = `QUO-${Date.now().toString().slice(-6)}`;
-  const currentDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const subtotal = components.reduce((sum, c) => sum + (c.price || 0) * (c.quantity || 1), 0);
+const discountAmount = (subtotal * (discountRate || 0)) / 100;
+const taxableAmount = subtotal - discountAmount;
+const gstAmount = (taxableAmount * (gstRate || 0)) / 100;
+const totalAmount = taxableAmount + gstAmount;
+
+  const currentDate = new Date().toLocaleDateString('en-IN', { 
+    day: '2-digit', 
+    month: 'short', 
+    year: 'numeric' 
+  });
+  
+  const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { 
+    day: '2-digit', 
+    month: 'short', 
+    year: 'numeric' 
+  });
 
   const [showHistory, setShowHistory] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedQuotation, setSelectedQuotation] = useState<QuotationHistoryItem | null>(null);
 
-  const generatePDF = async (forPrint = false) => {
-    const element = document.getElementById('quotation-content');
-    if (!element) {
-      alert('Element not found');
-      return null;
-    }
+const generatePDF = async (options: PDFGenerationOptions) => {
+  const element = document.getElementById('quotation-content');
+  if (!element) {
+    throw new Error('Element not found for PDF generation');
+  }
 
-    const options = {
-      margin: [10, 10, 10, 10],
-      filename: `PC_Build_Quotation_${quotationId}.pdf`,
-      image: { type: 'jpeg', quality: 1 },
-      html2canvas: {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        scrollY: 0
-      },
-      jsPDF: {
-        unit: 'mm',
-        format: 'a4',
-        orientation: 'portrait'
-      },
-      pagebreak: {
-        mode: ['avoid-all', 'css', 'legacy'],
-        after: '.pdf-pagebreak'
-      }
-    };
-
-    try {
-      if (forPrint) {
-        return await html2pdf().set(options).from(element).output('datauristring');
-      } else {
-        await html2pdf().set(options).from(element).save();
-        const pdfData = await html2pdf().set(options).from(element).output('datauristring');
-        return pdfData;
-      }
-    } catch (err) {
-      console.error('PDF generation error:', err);
-      alert('Error generating PDF. Please try again.');
-      throw err;
+  const pdfOptions = {
+    margin: [10, 10, 10, 10],
+    filename: options.filename,
+    image: { type: 'jpeg', quality: 1 },
+    html2canvas: {
+      scale: 3,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      scrollY: 0
+    },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait'
+    },
+    pagebreak: {
+      mode: ['avoid-all', 'css', 'legacy'],
+      after: '.pdf-pagebreak'
     }
   };
 
-  const handlePrint = async () => {
-    try {
-      const pdfData = await generatePDF(true);
-      if (!pdfData) return;
-      
-      const blob = dataURItoBlob(pdfData);
-      const pdfUrl = URL.createObjectURL(blob);
-      
-      const printWindow = window.open(pdfUrl);
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.focus();
-          printWindow.print();
-        };
-      }
-    } catch (err) {
-      console.error('Print error:', err);
-      alert('Error printing quotation. Please try again.');
+  try {
+    const pdfData = await html2pdf().set(pdfOptions).from(element).output('datauristring');
+    return pdfData;
+  } catch (err) {
+    console.error('PDF generation error:', err);
+    throw new Error('Failed to generate PDF');
+  }
+};
+
+ const handlePrint = async () => {
+  try {
+    const filename = isInvoiceMode 
+      ? `PC_Build_Invoice_${documentId.invoice}.pdf`
+      : `PC_Build_Quotation_${documentId.quotation}.pdf`;
+
+    const pdfData = await generatePDF({ filename, forPrint: true });
+    if (!pdfData) throw new Error('No PDF data generated');
+
+    const blob = dataURItoBlob(pdfData);
+    const pdfUrl = URL.createObjectURL(blob);
+    
+    const printWindow = window.open(pdfUrl);
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+      };
     }
-  };
+  } catch (err) {
+    console.error('Print error:', err);
+    alert(`Error printing document: ${err instanceof Error ? err.message : 'Unknown error'}`);
+  }
+};
 
   const handleShare = async () => {
-    try {
-      const pdfData = await generatePDF(true);
-      if (!pdfData) return;
-      
-      const blob = dataURItoBlob(pdfData);
-      const pdfFile = new File([blob], `Quotation_${quotationId}.pdf`, { type: 'application/pdf' });
+  try {
+    const filename = isInvoiceMode 
+      ? `Invoice_${documentId.invoice}.pdf`
+      : `Quotation_${documentId.quotation}.pdf`;
 
-      if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
-        await navigator.share({
-          title: 'PC Build Quotation',
-          text: 'Check out this PC build quotation',
-          files: [pdfFile]
-        });
-      } else {
-        // Fallback download
-        downloadPDF(pdfData, `Quotation_${quotationId}.pdf`);
-        alert('PDF downloaded. Please share it manually.');
-      }
-    } catch (err) {
-      console.error('Share error:', err);
-      alert('Error sharing quotation. Please try downloading and sharing manually.');
-    }
-  };
+    const pdfData = await generatePDF({ filename, forShare: true });
+    if (!pdfData) throw new Error('No PDF data generated');
 
-  const handleGeneratePDF = async () => {
-    try {
-      const pdfData = await generatePDF();
-      if (pdfData) {
-        onSaveHistory(pdfData);
-      }
-    } catch (err) {
-      console.error('PDF generation error:', err);
+    const blob = dataURItoBlob(pdfData);
+    const pdfFile = new File([blob], filename, { type: 'application/pdf' });
+
+    if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
+      await navigator.share({
+        title: isInvoiceMode ? 'PC Build Invoice' : 'PC Build Quotation',
+        text: isInvoiceMode ? 'Here is your PC build invoice' : 'Check out this PC build quotation',
+        files: [pdfFile]
+      });
+    } else {
+      downloadPDF(pdfData, filename);
+      alert('PDF downloaded. Please share it manually.');
     }
-  };
+  } catch (err) {
+    console.error('Share error:', err);
+    if (err instanceof Error && err.name !== 'AbortError') {
+      alert(`Error sharing document: ${err.message}`);
+    }
+  }
+};
+
+// Update the handleGeneratePDF function in QuotationPreview.tsx
+const handleGeneratePDF = async () => {
+  try {
+    const filename = isInvoiceMode 
+      ? `PC_Build_Invoice_${documentId.invoice}.pdf`
+      : `PC_Build_Quotation_${documentId.quotation}.pdf`;
+
+    const pdfData = await generatePDF({ filename });
+    if (!pdfData) throw new Error('No PDF data generated');
+
+    const pdfInfo: PDFInfo = {
+      id: isInvoiceMode ? documentId.invoice : documentId.quotation,
+      date: new Date().toISOString(),
+      customer: {
+        name: customer.name || '',
+        phone: customer.phone || '',
+        email: customer.email || '',
+        address: customer.address || ''
+      },
+      components: components.map(c => ({
+        name: c.name,
+        brand: c.brand,
+        quantity: c.quantity,
+        price: c.price
+      })),
+      subtotal,
+      discountRate,
+      discountAmount,
+      gstRate,
+      gstAmount,
+      totalAmount,
+      notes,
+      pdfData,
+      type: isInvoiceMode ? 'invoice' : 'quotation'
+    };
+
+    // Save to storage
+    await savePDFInfo(pdfInfo);
+    
+    // Call the existing onSaveHistory function
+    onSaveHistory(pdfData);
+
+    // Download the PDF
+    downloadPDF(pdfData, filename);
+
+  } catch (err) {
+    console.error('PDF generation error:', err);
+    alert(`Failed to generate PDF: ${err instanceof Error ? err.message : 'Unknown error'}`);
+  }
+};
 
   const downloadPDF = (pdfData: string, filename: string) => {
     const blob = dataURItoBlob(pdfData);
@@ -251,10 +313,12 @@ export const QuotationPreview = ({
         </div>
       </div>
       <div className="text-xs text-gray-800 border border-gray-300 rounded p-2 w-full md:w-48 mt-2 md:mt-0 bg-gray-50 print:text-sm">
-        <h3 className="text-sm font-semibold mb-1">Quotation Info</h3>
-        <p><span className="font-medium">ID:</span> {quotationId}</p>
+        <h3 className="text-sm font-semibold mb-1">
+          {isInvoiceMode ? 'Invoice Info' : 'Quotation Info'}
+        </h3>
+        <p><span className="font-medium">ID:</span> {isInvoiceMode ? documentId.invoice : documentId.quotation}</p>
         <p><span className="font-medium">Date:</span> {currentDate}</p>
-        <p><span className="font-medium">Valid Until:</span> {validUntil}</p>
+        {!isInvoiceMode && <p><span className="font-medium">Valid Until:</span> {validUntil}</p>}
       </div>
     </div>
   );
@@ -267,7 +331,21 @@ export const QuotationPreview = ({
             <div className="p-1 bg-blue-100 rounded-md">
               <FileText className="w-4 h-4 text-blue-600" />
             </div>
-            <h2 className="text-base font-bold text-gray-900">Quotation Preview</h2>
+            <h2 className="text-base font-bold text-gray-900">
+              {isInvoiceMode ? 'Invoice Preview' : 'Quotation Preview'}
+            </h2>
+            <label className="relative inline-flex items-center cursor-pointer ml-2">
+              <input 
+                type="checkbox" 
+                className="sr-only peer" 
+                checked={isInvoiceMode}
+                onChange={() => setIsInvoiceMode(!isInvoiceMode)}
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              <span className="ml-2 text-sm font-medium text-gray-700">
+                {isInvoiceMode ? 'Invoice' : 'Quotation'}
+              </span>
+            </label>
           </div>
           <div className="flex gap-1">
             <IconButton 
@@ -281,20 +359,20 @@ export const QuotationPreview = ({
               onClick={handlePrint} 
               color="blue" 
               disabled={isLoading}
-              tooltip="Print Quotation"
+              tooltip={isInvoiceMode ? 'Print Invoice' : 'Print Quotation'}
             />
             <IconButton 
               icon={Share2} 
               onClick={handleShare} 
               color="green" 
               disabled={isLoading}
-              tooltip="Share Quotation"
+              tooltip={isInvoiceMode ? 'Share Invoice' : 'Share Quotation'}
             />
             <IconButton 
               icon={Download} 
               onClick={handleGeneratePDF} 
               disabled={isLoading}
-              tooltip={isLoading ? 'Generating PDF...' : 'Download PDF'}
+              tooltip={isLoading ? 'Generating PDF...' : isInvoiceMode ? 'Download Invoice' : 'Download Quotation'}
             />
           </div>
         </div>
@@ -304,7 +382,7 @@ export const QuotationPreview = ({
         <div className="p-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
             <Clock className="w-5 h-5" />
-            Quotation History
+            {isInvoiceMode ? 'Invoice History' : 'Quotation History'}
           </h3>
           
           <div className="relative mb-4">
@@ -314,7 +392,7 @@ export const QuotationPreview = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border rounded-md"
-              placeholder="Search by name, phone or quotation #"
+              placeholder="Search by name, phone or document #"
             />
           </div>
 
@@ -325,7 +403,7 @@ export const QuotationPreview = ({
                   <tr>
                     <th className="px-3 py-2 text-left">Date</th>
                     <th className="px-3 py-2 text-left">Customer</th>
-                    <th className="px-3 py-2 text-left">Quotation #</th>
+                    <th className="px-3 py-2 text-left">Document #</th>
                     <th className="px-3 py-2 text-left">Actions</th>
                   </tr>
                 </thead>
@@ -352,7 +430,7 @@ export const QuotationPreview = ({
               </table>
             ) : (
               <div className="text-center py-4 text-gray-500">
-                {searchTerm ? 'No matching quotations found' : 'No quotation history yet'}
+                {searchTerm ? 'No matching documents found' : 'No history yet'}
               </div>
             )}
           </div>
@@ -364,7 +442,7 @@ export const QuotationPreview = ({
           <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] flex flex-col">
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="text-lg font-semibold">
-                Quotation: {selectedQuotation.quotationNumber}
+                {isInvoiceMode ? 'Invoice' : 'Quotation'}: {selectedQuotation.quotationNumber}
               </h3>
               <button onClick={closeViewer} className="text-gray-500 hover:text-gray-700">
                 &times;
@@ -374,12 +452,15 @@ export const QuotationPreview = ({
               <iframe 
                 src={selectedQuotation.pdfData}
                 className="w-full h-full min-h-[70vh] border-0"
-                title="Quotation PDF Viewer"
+                title={`${isInvoiceMode ? 'Invoice' : 'Quotation'} PDF Viewer`}
               />
             </div>
             <div className="p-4 border-t flex justify-end gap-2">
               <button
-                onClick={() => downloadPDF(selectedQuotation.pdfData, `Quotation_${selectedQuotation.quotationNumber}.pdf`)}
+                onClick={() => downloadPDF(selectedQuotation.pdfData, 
+                  isInvoiceMode 
+                    ? `Invoice_${selectedQuotation.quotationNumber}.pdf`
+                    : `Quotation_${selectedQuotation.quotationNumber}.pdf`)}
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
                 Download
@@ -458,13 +539,18 @@ export const QuotationPreview = ({
 
         {notes && (
           <div className="mt-3 text-xs text-gray-800 print:text-sm">
-            <h4 className="font-semibold mb-1 text-gray-900 print:text-base">Terms & Conditions</h4>
+            <h4 className="font-semibold mb-1 text-gray-900 print:text-base">
+              {isInvoiceMode ? 'Payment Terms' : 'Terms & Conditions'}
+            </h4>
             <p className="bg-yellow-50 border border-yellow-200 p-2 rounded leading-relaxed whitespace-pre-wrap">{notes}</p>
           </div>
         )}
 
         <div className="mt-6 text-center text-2xs text-gray-400 print:text-xs">
           <p>Generated by {companyInfo.name} - {companyInfo.website}</p>
+          <p className="mt-1">
+            {isInvoiceMode ? 'Invoice' : 'Quotation'} ID: {isInvoiceMode ? documentId.invoice : documentId.quotation}
+          </p>
         </div>
       </div>
     </div>

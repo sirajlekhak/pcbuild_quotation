@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { 
   Plus, 
   Search, 
@@ -17,10 +18,10 @@ import ProductSearch from './ProductSearch';
 interface Component {
   id: string;
   name: string;
-  brand?: string;
-  price?: number;
-  quantity?: number;
-  category?: string;
+  brand: string; // Changed from optional
+  price: number; // Changed from optional
+  quantity: number; // Changed from optional
+  category: string;
   warranty?: string;
   link?: string;
   model?: string;
@@ -201,27 +202,27 @@ export default function ComponentSelector({ components = [], onChange }: Compone
     });
   }, [searchTerm, selectedCategory, backendComponents]);
 
-  const addComponent = (componentData: Component) => {
-    // Validate required fields
-    if (!componentData.name?.trim()) {
-      setError('Component name cannot be empty');
-      return;
-    }
-    if (componentData.price === undefined || componentData.price <= 0) {
-      setError('Price must be greater than 0');
-      return;
-    }
+const addComponent = (componentData: Component) => {
+  // Validate required fields
+  if (!componentData.name?.trim()) {
+    setError('Component name cannot be empty');
+    return;
+  }
+  if (componentData.price === undefined || componentData.price <= 0) {
+    setError('Price must be greater than 0');
+    return;
+  }
 
-    const newComp: Component = {
-      ...componentData,
-      id: Date.now().toString(),
-      quantity: componentData.quantity || 1,
-      price: componentData.price,
-      category: componentData.category || detectCategory(componentData.name)
-    };
-    onChange([...components, newComp]);
-    setSuccessMessage('Component added successfully!');
+  const newComp: Component = {
+    ...componentData,
+    id: uuidv4(), // Changed from Date.now()
+    quantity: componentData.quantity || 1,
+    price: componentData.price,
+    category: componentData.category || detectCategory(componentData.name)
   };
+  onChange([...components, newComp]);
+  setSuccessMessage('Component added successfully!');
+};
 
   const handleEdit = (component: Component) => {
     setEditingComponentId(component.id);
@@ -258,10 +259,14 @@ export default function ComponentSelector({ components = [], onChange }: Compone
 const refreshComponents = async () => {
   try {
     setLoading(true);
+    setError('');
     const response = await fetch(`${API_BASE}/components`);
     if (!response.ok) throw new Error('Failed to fetch components');
     const data = await response.json();
-    setBackendComponents(data.components || []);
+    setBackendComponents(data.components?.map((comp: any) => ({
+      ...comp,
+      id: comp.id || uuidv4() // Ensure all components have IDs
+    })) || []);
     setSuccessMessage('Catalog refreshed successfully!');
   } catch (err) {
     console.error('Refresh failed:', err);
@@ -586,25 +591,24 @@ const refreshComponents = async () => {
       {showLiveSearch && (
         <div className="mb-6">
           <ProductSearch 
-            onAddComponent={(componentData) => {
-              // Validate before adding
-              if (!componentData.name?.trim()) {
-                setError('Component name is required');
-                return;
-              }
-              if (componentData.price === undefined || componentData.price <= 0) {
-                setError('Price must be greater than 0');
-                return;
-              }
-              const newComp: Component = {
-                ...componentData,
-                id: Date.now().toString(),
-                quantity: 1,
-                category: componentData.category || detectCategory(componentData.name)
-              };
-              onChange([...components, newComp]);
-              setSuccessMessage('Component added from search!');
-            }} 
+          onAddComponent={(componentData) => {
+            if (!componentData.name?.trim()) {
+              setError('Component name is required');
+              return;
+            }
+            if (componentData.price === undefined || componentData.price <= 0) {
+              setError('Price must be greater than 0');
+              return;
+            }
+            const newComp: Component = {
+              ...componentData,
+              id: uuidv4(), // Changed from Date.now()
+              quantity: 1,
+              category: componentData.category || detectCategory(componentData.name)
+            };
+            onChange([...components, newComp]);
+            setSuccessMessage('Component added from search!');
+          }} 
             apiBaseUrl={API_BASE}
           />
         </div>
@@ -712,38 +716,39 @@ const refreshComponents = async () => {
       )}
 
       {/* Component Catalog */}
-      {showAddForm && (
-        <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-800 mb-4">Browse Component Catalog</h3>
-      <button
-        onClick={refreshComponents}
-        className="p-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition-colors flex items-center justify-center"
-        title="Refresh catalog"
-        disabled={loading}
+{/* Component Catalog */}
+{showAddForm && (
+  <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+    <h3 className="text-lg font-medium text-gray-800 mb-4">Browse Component Catalog</h3>
+    <button
+      onClick={refreshComponents}
+      className="p-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition-colors flex items-center justify-center"
+      title="Refresh catalog"
+      disabled={loading}
+    >
+      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+    </button>
+    <div className="flex flex-col md:flex-row gap-4 mb-4">
+      <div className="flex-1 relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Search components..."
+        />
+      </div>
+      <select
+        value={selectedCategory}
+        onChange={(e) => setSelectedCategory(e.target.value)}
+        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       >
-        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-      </button>
-          <div className="flex flex-col md:flex-row gap-4 mb-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Search components..."
-              />
-            </div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {categories.map(category => (
-                <option key={`select-${category}`} value={category}>{category}</option>
-              ))}
-            </select>
-          </div>
+        {categories.map(category => (
+          <option key={`select-${category}`} value={category}>{category}</option>
+        ))}
+      </select>
+    </div>
 
     <div className="max-h-64 overflow-y-auto space-y-2">
       {filteredSampleComponents
@@ -795,7 +800,8 @@ const refreshComponents = async () => {
         ))}
     </div>
   </div>
-)}
+)};
+
     </div>
   );
 }

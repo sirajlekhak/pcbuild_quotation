@@ -1,22 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Monitor, Cpu, Zap, Globe } from 'lucide-react';
+import { Monitor, Cpu, Zap, Globe, Clock } from 'lucide-react';
 import CustomerForm from './components/CustomerForm';
 import ComponentSelector from './components/ComponentSelector';
 import QuotationSettings from './components/QuotationSettings';
 import QuotationPreview from './components/QuotationPreview';
+import QuotationHistory from './components/QuotationHistory';
 import { Component, Customer, CompanyInfo } from './types';
 import logo from './assets/logo.jpg';
+import { v4 as uuidv4 } from 'uuid';
 
-// Define the type for history items
 interface QuotationHistoryItem {
   id: string;
   date: string;
   customer: Customer;
+  components: Component[];
+  gstRate: number;
+  discountRate: number;
+  notes: string;
   quotationNumber: string;
   pdfData: string;
 }
 
-// Default company information
 const DEFAULT_COMPANY_INFO: CompanyInfo = {
   name: 'IT SERVICE WORLD',
   address: 'Siliguri, West Bengal, India',
@@ -47,57 +51,100 @@ function App() {
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO);
   const [isLoading, setIsLoading] = useState(false);
   const [quotationHistory, setQuotationHistory] = useState<QuotationHistoryItem[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const isQuotationReady = customer.name && customer.phone && components.length > 0;
 
-  // Load history from localStorage on component mount
-  useEffect(() => {
-    const loadHistory = () => {
-      try {
-        const savedHistory = localStorage.getItem('quotationHistory');
-        if (savedHistory) {
-          const parsed = JSON.parse(savedHistory);
-          // Validate the stored data structure
-          const validHistory = parsed.filter((item: any) => 
-            item && 
-            item.id && 
-            item.date && 
-            item.customer && 
-            item.quotationNumber && 
-            item.pdfData
-          );
-          setQuotationHistory(validHistory);
-        }
-      } catch (error) {
-        console.error('Failed to load quotation history:', error);
-        localStorage.removeItem('quotationHistory');
-      }
-    };
-
-    loadHistory();
-  }, []);
-
-  // Save quotation to history
-  const saveQuotationToHistory = (pdfData: string) => {
+useEffect(() => {
+  const loadHistory = async () => {
+    
+    setIsLoading(true);
     try {
-      const newHistoryItem: QuotationHistoryItem = {
-        id: Date.now().toString(),
-        date: new Date().toISOString(),
-        customer: { ...customer },
-        quotationNumber: `QUO-${Date.now().toString().slice(-6)}`,
-        pdfData
-      };
+      const response = await fetch('http://localhost:5001/api/quotations');
+      if (!response.ok) throw new Error('Failed to fetch history');
+      
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.quotations)) {
+        const transformed = data.quotations.map((item: any) => ({
+          id: item.id || uuidv4(), // Ensure every item has an ID
+          date: item.date || new Date().toISOString(),
+          customer: {
+            name: item.customerName || '',
+            phone: item.phone || '',
+            email: item.email || '',
+            address: item.address || ''
+          },
+          components: Array.isArray(item.components) 
+            ? item.components.map((c: any) => ({
+                ...c,
+                id: c.id || uuidv4() // Ensure components have IDs
+              }))
+            : [],
+          gstRate: Number(item.gstRate) || 18,
+          discountRate: Number(item.discountRate) || 0,
+          notes: item.notes || '',
+          quotationNumber: item.quotationNumber || `QUO-${item.id || Date.now()}`,
+          pdfData: item.id 
+            ? `http://localhost:5001/api/quotations/${item.id}`
+            : ''
+        }));
 
-      const updatedHistory = [newHistoryItem, ...quotationHistory].slice(0, 50); // Keep last 50 items
-      setQuotationHistory(updatedHistory);
-      localStorage.setItem('quotationHistory', JSON.stringify(updatedHistory));
+        setQuotationHistory(transformed);
+      }
     } catch (error) {
-      console.error('Failed to save quotation to history:', error);
+      console.error('Failed to load quotation history:', error);
+      // Optionally show error to user
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Filter history with safe property access
+  loadHistory();
+}, []);
+
+
+ const saveQuotationToHistory = async (pdfData: string) => {
+  try {
+    const newHistoryItem: QuotationHistoryItem = {
+      id: uuidv4(), // Use a proper UUID instead of Date.now()
+      date: new Date().toISOString(),
+      customer: { ...customer },
+      components: components.map(c => ({
+        ...c,
+        id: c.id || uuidv4() // Ensure all components have IDs
+      })),
+      gstRate,
+      discountRate,
+      notes,
+      quotationNumber: `QUO-${uuidv4().slice(0, 8)}`, // Better ID format
+      pdfData
+    };
+
+    // Save to backend
+    const response = await fetch('http://localhost:5001/api/quotations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...newHistoryItem,
+        customerName: customer.name,
+        phone: customer.phone
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to save to backend');
+
+    // Update local state
+    setQuotationHistory(prev => [newHistoryItem, ...prev].slice(0, 50));
+  } catch (error) {
+    console.error('Failed to save quotation:', error);
+    // Optionally show error to user
+  }
+};
+
   const filteredHistory = quotationHistory.filter(item => {
     if (!item || !item.customer || !item.quotationNumber) return false;
     
@@ -116,13 +163,22 @@ function App() {
   const handleGeneratePDF = async () => {
     try {
       setIsLoading(true);
-      // This would be handled by the QuotationPreview component
+      // PDF generation handled by QuotationPreview
     } catch (error) {
       console.error('Error generating PDF:', error);
     } finally {
       setIsLoading(false);
     }
   };
+
+const loadQuotationFromHistory = (item: QuotationHistoryItem) => {
+  setCustomer(item.customer);
+  setComponents(item.components);
+  setGstRate(Number(item.gstRate) || 18);  // Ensure number conversion
+  setDiscountRate(Number(item.discountRate) || 0);  // Ensure number conversion
+  setNotes(item.notes);
+  setShowHistory(false);
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -131,101 +187,131 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-4">
-                <img 
-                  src={companyInfo.logo} 
-                  alt={`${companyInfo.name} Logo`} 
-                  className="h-16 w-auto object-contain"
-                />
-              </div>
+              <img 
+                src={companyInfo.logo} 
+                alt={`${companyInfo.name} Logo`} 
+                className="h-16 w-auto object-contain"
+              />
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">{companyInfo.name}</h1>
                 <p className="text-gray-600">PC Build Quotation Generator</p>
               </div>
             </div>
-            <div className="hidden md:flex items-center gap-8 text-sm text-gray-600">
-              <div className="flex items-center gap-2">
+            
+            <div className="hidden md:flex items-center gap-4">
+              {/* Desktop History Button */}
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors relative"
+              >
+                <Clock className="w-5 h-5 text-blue-600" />
+                <span>{showHistory ? 'Back to Builder' : 'Quotation History'}</span>
+                {quotationHistory.length > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {Math.min(quotationHistory.length, 99)}
+                    {quotationHistory.length > 99 && '+'}
+                  </span>
+                )}
+              </button>
+              
+              <div className="flex items-center gap-2 text-sm text-gray-600">
                 <Cpu className="w-4 h-4 text-blue-600" />
                 <span>Professional PC Builds</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-green-600" />
-                <span>Expert Service</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-purple-600" />
-                <span>Live Price Updates</span>
-              </div>
             </div>
+          </div>
+          
+          {/* Mobile History Button */}
+          <div className="md:hidden mt-4 flex justify-center">
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors relative"
+            >
+              <Clock className="w-5 h-5" />
+              <span>{showHistory ? 'Back to Builder' : 'View History'}</span>
+              {quotationHistory.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center border border-white">
+                  {Math.min(quotationHistory.length, 9)}
+                  {quotationHistory.length > 9 && '+'}
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Left Column - Forms */}
-          <div className="space-y-8">
-            <CustomerForm customer={customer} onChange={setCustomer} />
-            <ComponentSelector components={components} onChange={setComponents} />
-            <QuotationSettings
-              gstRate={gstRate}
-              discountRate={discountRate}
-              notes={notes}
-              onGstRateChange={setGstRate}
-              onDiscountRateChange={setDiscountRate}
-              onNotesChange={setNotes}
-              onCompanyInfoChange={setCompanyInfo}
-            />
-          </div>
-
-          {/* Right Column - Preview */}
-          <div className="lg:sticky lg:top-8">
-            {isQuotationReady ? (
-              <QuotationPreview
-                customer={customer}
-                components={components}
+        {showHistory ? (
+          <QuotationHistory
+            history={quotationHistory}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            filteredHistory={filteredHistory}
+            onLoadQuotation={loadQuotationFromHistory}
+            onClose={() => setShowHistory(false)}
+          />
+        ) : (
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Left Column - Forms */}
+            <div className="space-y-8">
+              <CustomerForm customer={customer} onChange={setCustomer} />
+              <ComponentSelector components={components} onChange={setComponents} />
+              <QuotationSettings
                 gstRate={gstRate}
                 discountRate={discountRate}
                 notes={notes}
-                onGeneratePDF={handleGeneratePDF}
-                isLoading={isLoading}
-                companyInfo={companyInfo}
-                history={quotationHistory}
-                onSaveHistory={saveQuotationToHistory}
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-                filteredHistory={filteredHistory}
+                onGstRateChange={setGstRate}
+                onDiscountRateChange={setDiscountRate}
+                onNotesChange={setNotes}
+                onCompanyInfoChange={setCompanyInfo}
               />
-            ) : (
-              <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100 text-center">
-                <div className="p-4 bg-gray-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                  <Monitor className="w-8 h-8 text-gray-400" />
+            </div>
+
+            {/* Right Column - Preview */}
+            <div className="lg:sticky lg:top-8">
+              {isQuotationReady ? (
+                <QuotationPreview
+                  customer={customer}
+                  components={components}
+                  gstRate={gstRate}
+                  discountRate={discountRate}
+                  notes={notes}
+                  onGeneratePDF={handleGeneratePDF}
+                  isLoading={isLoading}
+                  companyInfo={companyInfo}
+                  history={quotationHistory}
+                  onSaveHistory={saveQuotationToHistory}
+                />
+              ) : (
+                <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100 text-center">
+                  <div className="p-4 bg-gray-100 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <Monitor className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-800 mb-2">Quotation Preview</h3>
+                  <p className="text-gray-600">
+                    Fill in customer details and add components to see the quotation preview
+                  </p>
+                  <div className="mt-6 text-sm text-gray-500">
+                    <p>Required:</p>
+                    <ul className="mt-2 space-y-1">
+                      <li className={customer.name ? 'text-green-600' : 'text-gray-500'}>
+                        ✓ Customer name {customer.name ? '✓' : ''}
+                      </li>
+                      <li className={customer.phone ? 'text-green-600' : 'text-gray-500'}>
+                        ✓ Phone number {customer.phone ? '✓' : ''}
+                      </li>
+                      <li className={components.length > 0 ? 'text-green-600' : 'text-gray-500'}>
+                        ✓ At least one component {components.length > 0 ? '✓' : ''}
+                      </li>
+                    </ul>
+                  </div>
                 </div>
-                <h3 className="text-lg font-medium text-gray-800 mb-2">Quotation Preview</h3>
-                <p className="text-gray-600">
-                  Fill in customer details and add components to see the quotation preview
-                </p>
-                <div className="mt-6 text-sm text-gray-500">
-                  <p>Required:</p>
-                  <ul className="mt-2 space-y-1">
-                    <li className={customer.name ? 'text-green-600' : 'text-gray-500'}>
-                      ✓ Customer name {customer.name ? '✓' : ''}
-                    </li>
-                    <li className={customer.phone ? 'text-green-600' : 'text-gray-500'}>
-                      ✓ Phone number {customer.phone ? '✓' : ''}
-                    </li>
-                    <li className={components.length > 0 ? 'text-green-600' : 'text-gray-500'}>
-                      ✓ At least one component {components.length > 0 ? '✓' : ''}
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
-      {/* Footer */}
       <footer className="bg-gray-900 text-white py-8 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
