@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { 
   Plus, 
@@ -30,6 +30,26 @@ interface Component {
 interface ComponentSelectorProps {
   components: Component[];
   onChange: (components: Component[]) => void;
+}
+
+
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number) {
+  let timeout: NodeJS.Timeout;
+  
+  const debounced = (...args: Parameters<T>) => {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+
+  debounced.cancel = () => {
+    clearTimeout(timeout);
+  };
+
+  return debounced;
 }
 
 const API_BASE = 'http://localhost:5001/api';
@@ -83,6 +103,51 @@ export default function ComponentSelector({ components = [], onChange }: Compone
       setError('Failed to export components');
     }
   };
+
+  const refreshComponents = useCallback(async (search = '', category = 'All') => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (category !== 'All') params.append('category', category);
+      
+      const url = `${API_BASE}/components?${params.toString()}`;
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch components');
+      
+      const data = await response.json();
+      setBackendComponents(data.components?.map((comp: any) => ({
+        ...comp,
+        id: comp.id || uuidv4()
+      })) || []);
+      
+      setSuccessMessage('Components refreshed successfully!');
+    } catch (err) {
+      console.error('Refresh failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to refresh components');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+    const debouncedRefresh = useMemo(
+    () => debounce(refreshComponents, 500),
+    [refreshComponents]
+  );
+
+useEffect(() => {
+  debouncedRefresh(searchTerm, selectedCategory);
+  return () => {
+    if (debouncedRefresh.cancel) {
+      debouncedRefresh.cancel();
+    }
+  };
+}, [searchTerm, selectedCategory, debouncedRefresh]);
+
 
   const importComponents = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -185,22 +250,29 @@ export default function ComponentSelector({ components = [], onChange }: Compone
     return 'Other';
   };
 
-  const filteredSampleComponents = useMemo(() => {
-    return (Array.isArray(backendComponents) ? backendComponents : []).filter(component => {
-      const name = component?.name || '';
-      const brand = component?.brand || '';
-      const category = component?.category || '';
+const filteredSampleComponents = useMemo(() => {
+  if (!backendComponents || !Array.isArray(backendComponents)) return [];
+  
+  return backendComponents.filter(component => {
+    if (!component) return false;
+    
+    const name = component.name?.toLowerCase() || '';
+    const brand = component.brand?.toLowerCase() || '';
+    const category = component.category?.toLowerCase() || '';
+    const searchLower = searchTerm.toLowerCase();
 
-      const matchesSearch = 
-        name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        brand.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesCategory = 
-        selectedCategory === 'All' || category === selectedCategory;
+    const matchesSearch = 
+      name.includes(searchLower) ||
+      brand.includes(searchLower) ||
+      category.includes(searchLower);
+    
+    const matchesCategory = 
+      selectedCategory === 'All' || 
+      component.category === selectedCategory;
 
-      return matchesSearch && matchesCategory;
-    });
-  }, [searchTerm, selectedCategory, backendComponents]);
+    return matchesSearch && matchesCategory;
+  });
+}, [searchTerm, selectedCategory, backendComponents]);
 
 const addComponent = (componentData: Component) => {
   // Validate required fields
@@ -255,26 +327,6 @@ const addComponent = (componentData: Component) => {
   const calculateComponentTotal = (component: Component) => {
     return (component.price || 0) * (component.quantity || 1);
   };
-
-const refreshComponents = async () => {
-  try {
-    setLoading(true);
-    setError('');
-    const response = await fetch(`${API_BASE}/components`);
-    if (!response.ok) throw new Error('Failed to fetch components');
-    const data = await response.json();
-    setBackendComponents(data.components?.map((comp: any) => ({
-      ...comp,
-      id: comp.id || uuidv4() // Ensure all components have IDs
-    })) || []);
-    setSuccessMessage('Catalog refreshed successfully!');
-  } catch (err) {
-    console.error('Refresh failed:', err);
-    setError(err instanceof Error ? err.message : 'Failed to refresh components');
-  } finally {
-    setLoading(false);
-  }
-};
 
   const handleAddOrUpdateComponent = async () => {
     try {
@@ -720,40 +772,58 @@ const refreshComponents = async () => {
 {showAddForm && (
   <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
     <h3 className="text-lg font-medium text-gray-800 mb-4">Browse Component Catalog</h3>
-    <button
-      onClick={refreshComponents}
-      className="p-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition-colors flex items-center justify-center"
-      title="Refresh catalog"
-      disabled={loading}
-    >
-      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-    </button>
-    <div className="flex flex-col md:flex-row gap-4 mb-4">
-      <div className="flex-1 relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="Search components..."
-        />
-      </div>
-      <select
-        value={selectedCategory}
-        onChange={(e) => setSelectedCategory(e.target.value)}
-        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      >
-        {categories.map(category => (
-          <option key={`select-${category}`} value={category}>{category}</option>
-        ))}
-      </select>
-    </div>
+<button
+  onClick={() => refreshComponents(searchTerm, selectedCategory)}
+  className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition-colors flex-shrink-0"
+  title="Refresh search results"
+  disabled={loading}
+>
+  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+</button>
+    
+<div className="flex flex-col md:flex-row gap-4 mb-4">
+  <div className="flex-1 flex items-center gap-2">
+  <div className="flex-1 relative">
+    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+    <input
+      type="text"
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      placeholder="Search components..."
+    />
+  </div>
+  <button
+    onClick={() => refreshComponents(searchTerm, selectedCategory)}
+    className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition-colors flex-shrink-0"
+    title="Refresh search results"
+    disabled={loading}
+  >
+    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+  </button>
+  </div>
+  <select
+    value={selectedCategory}
+    onChange={(e) => setSelectedCategory(e.target.value)}
+    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+  >
+    {categories.map(category => (
+      <option key={`select-${category}`} value={category}>{category}</option>
+    ))}
+  </select>
+</div>
 
-    <div className="max-h-64 overflow-y-auto space-y-2">
-      {filteredSampleComponents
-        .filter(comp => comp.name && comp.price && comp.price > 0)
-        .map((component) => (
+    {loading ? (
+      <div className="text-center py-4">Loading components...</div>
+    ) : filteredSampleComponents.length === 0 ? (
+      <div className="text-center py-4">
+        {searchTerm || selectedCategory !== 'All' 
+          ? 'No components match your search criteria' 
+          : 'No components available in the catalog'}
+      </div>
+    ) : (
+      <div className="max-h-64 overflow-y-auto space-y-2">
+        {filteredSampleComponents.map((component) => (
           <div key={`catalog-${component.id}`} className="bg-white rounded-lg p-3 border border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex-1">
@@ -798,7 +868,8 @@ const refreshComponents = async () => {
             </div>
           </div>
         ))}
-    </div>
+      </div>
+    )}
   </div>
 )}
 

@@ -1,131 +1,311 @@
 [
   {
-    "id": "a9e1cc74-8b96-43b4-a360-a98d3bd27e7f",
-    "category": "GPU",
-    "name": "AMD Radeon RX 7900 XT",
-    "brand": "AMD",
-    "price": 899.99,
-    "warranty": "3 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462045"
-  },
-  {
-    "id": "b8f2dd85-9ca7-54c5-b470-b99e4ce38e8g",
-    "category": "CPU",
-    "name": "Intel Core i9-13900K",
-    "brand": "Intel",
-    "price": 589.99,
-    "warranty": "3 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462057"
-  },
-  {
-    "id": "d6d4ff07-7ec9-76e7-d692-dbb06ce5a0fi",
-    "category": "Motherboard",
-    "name": "ASUS ROG Strix Z790-E Gaming WiFi",
-    "brand": "ASUS",
-    "price": 449.99,
-    "warranty": "3 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462067"
-  },
-  {
-    "id": "e5c5e018-6fda-87f8-e7a3-ecc17df4b1gj",
-    "category": "Storage",
-    "name": "Samsung 980 Pro 1TB NVMe SSD",
-    "brand": "Samsung",
-    "price": 129.99,
-    "warranty": "5 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462076"
-  },
-  {
-    "id": "f4b6d129-5eeb-98g9-f8b4-fdd28e3c2ahk",
-    "category": "PSU",
-    "name": "Corsair RM850x (2021) 850W 80+ Gold",
-    "brand": "Corsair",
-    "price": 149.99,
-    "warranty": "10 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462085"
-  },
-  {
-    "id": "g3a7e23a-4dfc-a9ha-g9c5-gee39f4d3bil",
-    "category": "Case",
-    "name": "Lian Li PC-O11 Dynamic",
-    "brand": "Lian Li",
-    "price": 159.99,
-    "warranty": "2 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462093"
-  },
-  {
-    "id": "h2b8f34b-3ced-baib-had6-hff0a5e4cjm",
-    "category": "Cooling",
-    "name": "Noctua NH-D15 chromax.black",
-    "brand": "Noctua",
-    "price": 109.95,
-    "warranty": "6 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462102"
-  },
-  {
-    "id": "i1c9g45c-2bde-cbjc-ibe7-igg1b6f5dkn",
-    "category": "Monitor",
-    "name": "LG UltraGear 27GN950-B",
-    "brand": "LG",
-    "price": 799.99,
-    "warranty": "3 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462112"
-  },
-  {
-    "id": "j0d0h56d-1acf-dckd-jcf8-jhh2c7g6elo",
-    "category": "Accessories",
-    "name": "Logitech G Pro X Mechanical Keyboard",
-    "brand": "Logitech",
-    "price": 199.99,
-    "warranty": "2 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462121"
-  },
-  {
-    "id": "k9e1i67e-0bge-edle-kdg9-kii3d8h7fmp",
-    "category": "GPU",
-    "name": "NVIDIA GeForce RTX 4080",
-    "brand": "NVIDIA",
-    "price": 1199.99,
-    "warranty": "3 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462129"
-  },
-  {
-    "id": "l8f2j78f-9ahf-feof-leha-ljj4e9i8gnq",
-    "category": "CPU",
-    "name": "AMD Ryzen 9 7950X",
-    "brand": "AMD",
-    "price": 699.99,
-    "warranty": "3 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462137"
-  },
-  {
-    "id": "m7g3k89g-8big-gfpg-mfib-mkk5f0j9hor",
-    "category": "Storage",
-    "name": "Western Digital Black SN850X 2TB",
-    "brand": "WD",
-    "price": 249.99,
-    "warranty": "5 years",
-    "created_at": "2025-08-04T23:23:05.470749",
-    "updated_at": "2025-08-07T12:48:08.462146"
-  },
-  {
     "id": "32405891-9cc1-4776-9f88-82bd4bc50c81",
-    "category": "Monitor",
-    "name": "monitor 17 inch",
-    "brand": "zebronics",
-    "price": 56487.0,
+    "category": "Cabinet",
+    "name": "Cooler Master Tower Cabinet",
+    "brand": "Cooler Master",
+    "price": 7800.0,
     "warranty": "2 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "42415891-9cc1-4776-9f88-82bd4bc50c82",
+    "category": "Motherboard",
+    "name": "MSI X870 Tomahawk WiFi Motherboard",
+    "brand": "MSI",
+    "price": 30500.0,
+    "warranty": "3 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "52425891-9cc1-4776-9f88-82bd4bc50c83",
+    "category": "Processor",
+    "name": "Ryzen 9 7900X Processor",
+    "brand": "AMD",
+    "price": 31500.0,
+    "warranty": "3 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "62435891-9cc1-4776-9f88-82bd4bc50c84",
+    "category": "Cooler",
+    "name": "Cooler Master MasterLiquid ION",
+    "brand": "Cooler Master",
+    "price": 20500.0,
+    "warranty": "2 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "72445891-9cc1-4776-9f88-82bd4bc50c85",
+    "category": "RAM",
+    "name": "Corsair Vengeance RGB DDR5 64GB RAM",
+    "brand": "Corsair",
+    "price": 36000.0,
+    "warranty": "lifetime",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "82455891-9cc1-4776-9f88-82bd4bc50c86",
+    "category": "Storage",
+    "name": "Samsung 2TB EVO Plus SSD",
+    "brand": "Samsung",
+    "price": 26200.0,
+    "warranty": "5 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "92465891-9cc1-4776-9f88-82bd4bc50c87",
+    "category": "PSU",
+    "name": "Cooler Master 1050W Gold PSU",
+    "brand": "Cooler Master",
+    "price": 13500.0,
+    "warranty": "10 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "02475891-9cc1-4776-9f88-82bd4bc50c88",
+    "category": "UPS",
+    "name": "CyberPower 2200VA UPS",
+    "brand": "CyberPower",
+    "price": 6100.0,
+    "warranty": "2 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "22495891-9cc1-4776-9f88-82bd4bc50c90",
+    "category": "Accessories",
+    "name": "Mechanical Keyboard + Mouse",
+    "brand": "Unknown",
+    "price": 3500.0,
+    "warranty": "1 year",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "32505891-9cc1-4776-9f88-82bd4bc50c91",
+    "category": "Software",
+    "name": "Windows 11 Pro OS",
+    "brand": "Microsoft",
+    "price": 6500.0,
+    "warranty": "N/A",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "42515891-9cc1-4776-9f88-82bd4bc50c92",
+    "category": "Graphics Card",
+    "name": "Gigabyte N5090 Gaming OC 32GB Graphics Card",
+    "brand": "Gigabyte",
+    "price": 228500.0,
+    "warranty": "3 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "52525891-9cc1-4776-9f88-82bd4bc50c93",
+    "category": "Monitor",
+    "name": "LG 29\" UltraWide IPS Monitor",
+    "brand": "LG",
+    "price": 24500.0,
+    "warranty": "3 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "62535891-9cc1-4776-9f88-82bd4bc50c94",
+    "category": "Storage",
+    "name": "Seagate IronWolf Pro 10TB HDD",
+    "brand": "Seagate",
+    "price": 18500.0,
+    "warranty": "5 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "72545891-9cc1-4776-9f88-82bd4bc50c95",
+    "category": "Audio",
+    "name": "Shure SM7B Microphone",
+    "brand": "Shure",
+    "price": 39900.0,
+    "warranty": "2 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "82555891-9cc1-4776-9f88-82bd4bc50c96",
+    "category": "Audio",
+    "name": "Focusrite Scarlett Solo Audio Interface",
+    "brand": "Focusrite",
+    "price": 12500.0,
+    "warranty": "2 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "92565891-9cc1-4776-9f88-82bd4bc50c97",
+    "category": "Audio",
+    "name": "Audio-Technica ATH-M50x Headphones",
+    "brand": "Audio-Technica",
+    "price": 14900.0,
+    "warranty": "2 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "02575891-9cc1-4776-9f88-82bd4bc50c98",
+    "category": "Video",
+    "name": "Elgato Cam Link 4K",
+    "brand": "Elgato",
+    "price": 8500.0,
+    "warranty": "1 year",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "12585891-9cc1-4776-9f88-82bd4bc50c99",
+    "category": "Camera",
+    "name": "Sony ZV-E10 Mirrorless Camera",
+    "brand": "Sony",
+    "price": 65900.0,
+    "warranty": "1 year",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "22595891-9cc1-4776-9f88-82bd4bc50c10",
+    "category": "Video",
+    "name": "Logitech Brio 4K Webcam",
+    "brand": "Logitech",
+    "price": 18900.0,
+    "warranty": "2 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+    {
+    "id": "32405891-9cc1-4776-9f88-82bd4bc50c81",
+    "category": "Cabinet",
+    "name": "Cooler Master Tower Cabinet",
+    "brand": "Cooler Master",
+    "price": 7800.0,
+    "warranty": "2 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "42415891-9cc1-4776-9f88-82bd4bc50c82",
+    "category": "Motherboard",
+    "name": "MSI X870 Tomahawk WiFi Motherboard",
+    "brand": "MSI",
+    "price": 30500.0,
+    "warranty": "3 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "52425891-9cc1-4776-9f88-82bd4bc50c83",
+    "category": "Processor",
+    "name": "Ryzen 9 7900X Processor",
+    "brand": "AMD",
+    "price": 31500.0,
+    "warranty": "3 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "62435891-9cc1-4776-9f88-82bd4bc50c84",
+    "category": "Cooler",
+    "name": "Cooler Master MasterLiquid ION",
+    "brand": "Cooler Master",
+    "price": 20500.0,
+    "warranty": "2 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "72445891-9cc1-4776-9f88-82bd4bc50c85",
+    "category": "RAM",
+    "name": "Corsair Vengeance RGB DDR5 64GB RAM",
+    "brand": "Corsair",
+    "price": 36000.0,
+    "warranty": "lifetime",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "82455891-9cc1-4776-9f88-82bd4bc50c86",
+    "category": "Storage",
+    "name": "Samsung 2TB EVO Plus SSD",
+    "brand": "Samsung",
+    "price": 26200.0,
+    "warranty": "5 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "92465891-9cc1-4776-9f88-82bd4bc50c87",
+    "category": "PSU",
+    "name": "Cooler Master 1050W Gold PSU",
+    "brand": "Cooler Master",
+    "price": 13500.0,
+    "warranty": "10 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "02475891-9cc1-4776-9f88-82bd4bc5028",
+    "category": "UPS",
+    "name": "CyberPower 2200VA UPS",
+    "brand": "CyberPower",
+    "price": 6100.0,
+    "warranty": "2 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "12485891-9cc1-4776-9f88-82bd4bc50c89",
+    "category": "Monitor",
+    "name": "BenQ 27\" 4K Monitor",
+    "brand": "BenQ",
+    "price": 3700.0,
+    "warranty": "3 years",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "22495891-9cc1-4776-9f88-82bd4bc50c90",
+    "category": "Accessories",
+    "name": "Mechanical Keyboard + Mouse",
+    "brand": "Unknown",
+    "price": 3500.0,
+    "warranty": "1 year",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "32505891-9cc1-4776-9f88-82bd4bc50c91",
+    "category": "Software",
+    "name": "Windows 11 Pro OS",
+    "brand": "Microsoft",
+    "price": 6500.0,
+    "warranty": "N/A",
+    "created_at": "2025-08-07T12:48:08.461407",
+    "updated_at": "2025-08-07T12:48:08.461420"
+  },
+  {
+    "id": "42515891-9cc1-4776-9f88-82bd4bc50c92",
+    "category": "Graphics Card",
+    "name": "Gigabyte N5090 Gaming OC 32GB Graphics Card",
+    "brand": "Gigabyte",
+    "price": 228500.0,
+    "warranty": "3 years",
     "created_at": "2025-08-07T12:48:08.461407",
     "updated_at": "2025-08-07T12:48:08.461420"
   }

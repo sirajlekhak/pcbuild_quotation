@@ -58,11 +58,11 @@ const totalAmount = taxableAmount + gstAmount;
     year: 'numeric' 
   });
   
-  const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { 
+const validUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { 
     day: '2-digit', 
     month: 'short', 
     year: 'numeric' 
-  });
+});
 
   const [showHistory, setShowHistory] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -428,26 +428,44 @@ const handleGeneratePDF = async () => {
         {components.length > 0 && (
           <div className="mb-4 print:mb-3">
             <h3 className="text-sm font-semibold text-gray-900 mb-1 print:text-base">Component Details</h3>
-            <table className="w-full table-auto text-xs border border-gray-200 rounded overflow-hidden print:text-sm">
-              <thead className="bg-gray-100 text-gray-700">
-                <tr>
-                  <th className="px-2 py-1 text-left">Component</th>
-                  <th className="px-2 py-1 text-left">Brand</th>
-                  <th className="px-2 py-1 text-right">Qty</th>
-                  <th className="px-2 py-1 text-right">Unit Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {components.map((c, i) => (
-                  <tr key={i} className="border-t border-gray-200">
-                    <td className="px-2 py-1">{c.name}</td>
-                    <td className="px-2 py-1">{c.brand}</td>
-                    <td className="px-2 py-1 text-right">{c.quantity}</td>
-                    <td className="px-2 py-1 text-right">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(c.price).replace('₹', '₹')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+<table className="w-full table-auto text-xs border border-gray-200 rounded overflow-hidden print:text-sm">
+  <thead className="bg-gray-100 text-gray-700">
+    <tr>
+      <th className="px-2 py-1 text-left">Component</th>
+      <th className="px-2 py-1 text-left">Brand</th>
+      <th className="px-2 py-1 text-right">Qty</th>
+      <th className="px-2 py-1 text-right">Unit Price</th>
+      <th className="px-2 py-1 text-right">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {components.map((c, i) => {
+      const unitPrice = c.price || 0;
+      const quantity = c.quantity || 1;
+      const totalPrice = unitPrice * quantity;
+      
+      return (
+        <tr key={i} className="border-t border-gray-200">
+          <td className="px-2 py-1">{c.name}</td>
+          <td className="px-2 py-1">{c.brand}</td>
+          <td className="px-2 py-1 text-right">{quantity}</td>
+          <td className="px-2 py-1 text-right">
+            {new Intl.NumberFormat('en-IN', { 
+              style: 'currency', 
+              currency: 'INR' 
+            }).format(unitPrice).replace('₹', '₹')}
+          </td>
+          <td className="px-2 py-1 text-right">
+            {new Intl.NumberFormat('en-IN', { 
+              style: 'currency', 
+              currency: 'INR' 
+            }).format(totalPrice).replace('₹', '₹')}
+          </td>
+        </tr>
+      );
+    })}
+  </tbody>
+</table>
           </div>
         )}
 
