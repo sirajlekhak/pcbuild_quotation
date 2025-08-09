@@ -101,6 +101,50 @@ def save_pdf_info():
         logger.error(f"Error saving PDF info: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@pdf_bp.route('/api/delete_pdf_info/<id>', methods=['DELETE', 'OPTIONS'])
+def delete_pdf_info(id):
+    if request.method == 'OPTIONS':
+        return '', 204
+        
+    try:
+        # Ensure directory exists
+        PDF_INFO_PATH.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Load existing data
+        if not PDF_INFO_PATH.exists():
+            return jsonify({'error': 'No PDF info found'}), 404
+            
+        with open(PDF_INFO_PATH, 'r') as f:
+            try:
+                existing_data = json.load(f)
+                if not isinstance(existing_data, list):
+                    existing_data = []
+            except json.JSONDecodeError:
+                existing_data = []
+
+        # Find and remove the entry
+        initial_count = len(existing_data)
+        existing_data = [item for item in existing_data if item.get('id') != id]
+        
+        if len(existing_data) == initial_count:
+            return jsonify({'error': 'PDF info not found'}), 404
+
+        # Write back to file
+        with open(PDF_INFO_PATH, 'w') as f:
+            json.dump(existing_data, f, indent=2)
+
+        response = jsonify({'success': True})
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response
+
+    except Exception as e:
+        logger.error(f"Error deleting PDF info: {str(e)}")
+        response = jsonify({'error': str(e)})
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response, 500
+    
 @pdf_bp.route('/api/load_pdf_info', methods=['GET', 'OPTIONS'])
 def load_pdf_info():
     if request.method == 'OPTIONS':

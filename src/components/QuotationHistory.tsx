@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, FileText, Download, Search, RefreshCw, Eye, Printer, Share2 } from 'lucide-react';
-import { loadPDFInfo } from '../utils/pdfStorage';
+import { X, FileText, Download, Search, RefreshCw, Eye, Printer, Share2, Trash2 } from 'lucide-react';
+import { loadPDFInfo, deletePDFInfo } from '../utils/pdfStorage';
 import type { PDFInfo } from '../utils/pdfStorage';
 
 interface QuotationHistoryItem {
@@ -35,6 +35,7 @@ export const QuotationHistory = ({ onLoadQuotation, onClose }: QuotationHistoryP
   const [history, setHistory] = useState<QuotationHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [previewItem, setPreviewItem] = useState<QuotationHistoryItem | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadHistory = async () => {
     setIsLoading(true);
@@ -46,7 +47,7 @@ export const QuotationHistory = ({ onLoadQuotation, onClose }: QuotationHistoryP
             quotationNumber: info.id,
             customer: info.customer || { name: '', phone: '' },
             components: info.components || [],
-            totalAmount: info.totalAmount
+             totalAmount: info.totalAmount || calculateTotalAmount(info)
           }))
         : [];
       
@@ -103,6 +104,31 @@ export const QuotationHistory = ({ onLoadQuotation, onClose }: QuotationHistoryP
       console.error('Share error:', err);
     }
   };
+
+// In your QuotationHistory.tsx
+const handleDelete = async (id: string) => {
+  if (window.confirm('Are you sure you want to delete this document?')) {
+    setDeletingId(id);
+    try {
+      // Ensure deletePDFInfo is properly imported
+      const success = await deletePDFInfo(id);
+      if (success) {
+        setHistory(prev => prev.filter(item => item.id !== id));
+        if (previewItem?.id === id) {
+          setPreviewItem(null);
+        }
+        // Optional: Show success message
+      } else {
+        alert('Failed to delete document');
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Error deleting document. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+};
 
   const downloadPDF = (pdfData: string, filename: string) => {
     const a = document.createElement('a');
@@ -283,6 +309,18 @@ export const QuotationHistory = ({ onLoadQuotation, onClose }: QuotationHistoryP
                     >
                       <Download className="w-5 h-5" />
                     </button>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors flex items-center justify-center min-w-[40px]"
+                      title="Delete"
+                      disabled={deletingId === item.id}
+                    >
+                      {deletingId === item.id ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-700"></div>
+                      ) : (
+                        <Trash2 className="w-5 h-5" />
+                      )}
+                    </button>
                   </div>
                 </div>
                 {item.notes && (
@@ -334,6 +372,18 @@ export const QuotationHistory = ({ onLoadQuotation, onClose }: QuotationHistoryP
                   <Download className="w-5 h-5" />
                 </button>
                 <button
+                  onClick={() => handleDelete(previewItem.id)}
+                  className="p-2 rounded-lg hover:bg-red-100 text-red-700 transition-colors flex items-center justify-center min-w-[40px]"
+                  title="Delete"
+                  disabled={deletingId === previewItem.id}
+                >
+                  {deletingId === previewItem.id ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-700"></div>
+                  ) : (
+                    <Trash2 className="w-5 h-5" />
+                  )}
+                </button>
+                <button
                   onClick={() => setPreviewItem(null)}
                   className="p-2 rounded-lg hover:bg-gray-100 text-gray-700 transition-colors"
                   title="Close"
@@ -366,8 +416,6 @@ export const QuotationHistory = ({ onLoadQuotation, onClose }: QuotationHistoryP
           </div>
         </div>
       )}
-
-
     </>
   );
 };

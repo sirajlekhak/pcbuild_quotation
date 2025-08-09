@@ -67,7 +67,7 @@ export const loadPDFInfo = async (): Promise<PDFInfo[]> => {
 
     return (Array.isArray(data) ? data : []).map(item => ({
       ...item,
-      id: item.id || uuidv4(), // Backfill missing IDs
+      id: item.id || uuidv4(),
       components: (item.components || []).map((c: any) => ({
         ...c,
         id: c.id || uuidv4()
@@ -76,6 +76,30 @@ export const loadPDFInfo = async (): Promise<PDFInfo[]> => {
   } catch (error) {
     console.error('Error loading PDF info:', error);
     return [];
+  }
+};
+
+export const deletePDFInfo = async (id: string): Promise<boolean> => {
+  try {
+    const API_BASE_URL = 'http://localhost:5001'; // Or use environment variable solution
+    
+    const response = await fetch(`${API_BASE_URL}/api/delete_pdf_info/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error deleting PDF info:', error);
+    throw error;
   }
 };
 
