@@ -39,14 +39,43 @@ function App() {
     address: ''
   });
 
-  const [components, setComponents] = useState<Component[]>([]);
-  const [gstRate, setGstRate] = useState(18);
-  const [discountRate, setDiscountRate] = useState(0);
-  const [notes, setNotes] = useState(`• All prices are inclusive of GST
-• This quotation is valid for 07 days from the date of issue
+const [isInvoiceMode, setIsInvoiceMode] = useState(false);
+const [components, setComponents] = useState<Component[]>([]);
+const [gstRate, setGstRate] = useState(18);
+const [discountRate, setDiscountRate] = useState(0);
+
+// Dynamic notes based on document type
+const [notes, setNotes] = useState(
+  `• All prices are inclusive of GST
 • Warranty terms as mentioned for individual components
 • Installation and setup service available
-• Payment terms: 50% advance, 50% on delivery`);
+• This quotation is valid for 07 days from the date of issue
+• Payment terms: 50% advance, 50% on delivery`
+);
+
+// Update notes when switching between invoice/quote mode
+useEffect(() => {
+  setNotes(prevNotes => {
+    // Keep the common notes
+    const baseNotes = prevNotes.split('\n')
+      .filter(line => !line.includes('valid for') && 
+                     !line.includes('Payment terms') && 
+                     !line.includes('payable within'))
+      .join('\n');
+
+    // Add the mode-specific notes
+    const paymentTerms = isInvoiceMode 
+      ? '• Payment due upon receipt' 
+      : '• Payment terms: 50% advance, 50% on delivery';
+
+    const validity = isInvoiceMode
+      ? '• Invoice is payable within 07 days'
+      : '• This quotation is valid for 07 days from the date of issue';
+
+    return `${baseNotes}\n${validity}\n${paymentTerms}`;
+  });
+}, [isInvoiceMode]);
+
 
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO);
   const [isLoading, setIsLoading] = useState(false);

@@ -125,7 +125,7 @@ export default function ComponentSelector({ components = [], onChange }: Compone
         id: comp.id || uuidv4()
       })) || []);
       
-      setSuccessMessage('Components refreshed successfully!');
+    
     } catch (err) {
       console.error('Refresh failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to refresh components');

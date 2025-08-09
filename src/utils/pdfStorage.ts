@@ -10,7 +10,6 @@ export function uuidv4(): string {
   });
 }
 
-// src/utils/pdfStorage.ts
 interface PDFInfo {
   id: string;
   date: string;
@@ -46,7 +45,7 @@ export const savePDFInfo = async (data: PDFInfo): Promise<boolean> => {
         'Accept': 'application/json'
       },
       body: JSON.stringify(data),
-      credentials: 'include'  // If you need to handle cookies/sessions
+      credentials: 'include'
     });
 
     if (!response.ok) {

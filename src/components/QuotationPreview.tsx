@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, Download, Printer, Share2, Clock, Search } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
-import { PDFInfo } from '@/utils/pdfStorage';
-// Add this import with other imports
-import { savePDFInfo } from '@/utils/pdfStorage';
+import { PDFInfo, savePDFInfo } from '@/utils/pdfStorage';
 
 interface QuotationHistoryItem {
   id: string;
@@ -22,6 +20,37 @@ interface PDFGenerationOptions {
   forShare?: boolean;
 }
 
+interface QuotationPreviewProps {
+  customer: {
+    name: string;
+    phone: string;
+    email?: string;
+    address?: string;
+  };
+  components: Array<{
+    name: string;
+    brand: string;
+    quantity: number;
+    price: number;
+  }>;
+  gstRate: number;
+  discountRate: number;
+  notes?: string;
+  isLoading?: boolean;
+  companyInfo: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    gstin: string;
+    website?: string;
+    logo?: string;
+  };
+  history?: QuotationHistoryItem[];
+  onSaveHistory: (pdfData: string) => void;
+  selectedHistoryItem?: QuotationHistoryItem | null;
+}
+
 export const QuotationPreview = ({
   customer,
   components,
@@ -30,27 +59,52 @@ export const QuotationPreview = ({
   notes,
   isLoading = false,
   companyInfo,
-  history,
-  onSaveHistory
+  history = [],
+  onSaveHistory,
+  selectedHistoryItem
 }: QuotationPreviewProps) => {
-  const [isInvoiceMode, setIsInvoiceMode] = useState(false);
-  
-  // Generate consistent IDs for both modes
-const [documentId] = useState(() => {
-  const now = new Date();
-  const datePart = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}`;
-  const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  return {
-    quotation: `QUO-${datePart}-${randomPart}`,
-    invoice: `INV-${datePart}-${randomPart}`
+    const generateNewId = (type: 'quotation' | 'invoice') => {
+    const now = new Date();
+    const datePart = `${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}`;
+    const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    return `${type === 'quotation' ? 'QUO' : 'INV'}-${datePart}-${randomPart}`;
   };
+  const [isInvoiceMode, setIsInvoiceMode] = useState(false);
+const [documentId, setDocumentId] = useState({
+  quotation: selectedHistoryItem?.type === 'quotation' 
+    ? selectedHistoryItem.quotationNumber 
+    : generateNewId('quotation'),
+  invoice: selectedHistoryItem?.type === 'invoice' 
+    ? selectedHistoryItem.quotationNumber 
+    : generateNewId('invoice')
 });
 
-const subtotal = components.reduce((sum, c) => sum + (c.price || 0) * (c.quantity || 1), 0);
-const discountAmount = (subtotal * (discountRate || 0)) / 100;
-const taxableAmount = subtotal - discountAmount;
-const gstAmount = (taxableAmount * (gstRate || 0)) / 100;
-const totalAmount = taxableAmount + gstAmount;
+useEffect(() => {
+  if (selectedHistoryItem) {
+    const isInvoice = selectedHistoryItem.type === 'invoice';
+    setIsInvoiceMode(isInvoice);
+    
+    // Only update the ID for the current type, keep the other one as is
+    setDocumentId(prev => ({
+      quotation: isInvoice ? prev.quotation : selectedHistoryItem.quotationNumber,
+      invoice: isInvoice ? selectedHistoryItem.quotationNumber : prev.invoice
+    }));
+  }
+}, [selectedHistoryItem]);
+
+const toggleDocumentMode = () => {
+  setIsInvoiceMode(prev => !prev);
+  // Don't regenerate IDs when toggling
+};
+
+const [selectedQuotation, setSelectedQuotation] = useState<QuotationHistoryItem | null>(null);
+const [searchTerm, setSearchTerm] = useState('');
+
+  const subtotal = components.reduce((sum, c) => sum + (c.price || 0) * (c.quantity || 1), 0);
+  const discountAmount = (subtotal * (discountRate || 0)) / 100;
+  const taxableAmount = subtotal - discountAmount;
+  const gstAmount = (taxableAmount * (gstRate || 0)) / 100;
+  const totalAmount = taxableAmount + gstAmount;
 
   const currentDate = new Date().toLocaleDateString('en-IN', { 
     day: '2-digit', 
@@ -58,157 +112,148 @@ const totalAmount = taxableAmount + gstAmount;
     year: 'numeric' 
   });
   
-const validUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { 
+  const validUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { 
     day: '2-digit', 
     month: 'short', 
     year: 'numeric' 
-});
+  });
 
-  const [showHistory, setShowHistory] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedQuotation, setSelectedQuotation] = useState<QuotationHistoryItem | null>(null);
+  const generatePDF = async (options: PDFGenerationOptions) => {
+    const element = document.getElementById('quotation-content');
+    if (!element) {
+      throw new Error('Element not found for PDF generation');
+    }
 
-const generatePDF = async (options: PDFGenerationOptions) => {
-  const element = document.getElementById('quotation-content');
-  if (!element) {
-    throw new Error('Element not found for PDF generation');
-  }
+    const pdfOptions = {
+      margin: [10, 10, 10, 10],
+      filename: options.filename,
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        scrollY: 0
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait'
+      },
+      pagebreak: {
+        mode: ['avoid-all', 'css', 'legacy'],
+        after: '.pdf-pagebreak'
+      }
+    };
 
-  const pdfOptions = {
-    margin: [10, 10, 10, 10],
-    filename: options.filename,
-    image: { type: 'jpeg', quality: 1 },
-    html2canvas: {
-      scale: 3,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      scrollY: 0
-    },
-    jsPDF: {
-      unit: 'mm',
-      format: 'a4',
-      orientation: 'portrait'
-    },
-    pagebreak: {
-      mode: ['avoid-all', 'css', 'legacy'],
-      after: '.pdf-pagebreak'
+    try {
+      const pdfData = await html2pdf().set(pdfOptions).from(element).output('datauristring');
+      return pdfData;
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      throw new Error('Failed to generate PDF');
     }
   };
 
-  try {
-    const pdfData = await html2pdf().set(pdfOptions).from(element).output('datauristring');
-    return pdfData;
-  } catch (err) {
-    console.error('PDF generation error:', err);
-    throw new Error('Failed to generate PDF');
-  }
-};
+  const handlePrint = async () => {
+    try {
+      const filename = isInvoiceMode 
+        ? `PC_Build_Invoice_${documentId.invoice}.pdf`
+        : `PC_Build_Quotation_${documentId.quotation}.pdf`;
 
- const handlePrint = async () => {
-  try {
-    const filename = isInvoiceMode 
-      ? `PC_Build_Invoice_${documentId.invoice}.pdf`
-      : `PC_Build_Quotation_${documentId.quotation}.pdf`;
+      const pdfData = await generatePDF({ filename, forPrint: true });
+      if (!pdfData) throw new Error('No PDF data generated');
 
-    const pdfData = await generatePDF({ filename, forPrint: true });
-    if (!pdfData) throw new Error('No PDF data generated');
-
-    const blob = dataURItoBlob(pdfData);
-    const pdfUrl = URL.createObjectURL(blob);
-    
-    const printWindow = window.open(pdfUrl);
-    if (printWindow) {
-      printWindow.onload = () => {
-        printWindow.focus();
-        printWindow.print();
-      };
+      const blob = dataURItoBlob(pdfData);
+      const pdfUrl = URL.createObjectURL(blob);
+      
+      const printWindow = window.open(pdfUrl);
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.focus();
+          printWindow.print();
+        };
+      }
+    } catch (err) {
+      console.error('Print error:', err);
+      alert(`Error printing document: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
-  } catch (err) {
-    console.error('Print error:', err);
-    alert(`Error printing document: ${err instanceof Error ? err.message : 'Unknown error'}`);
-  }
-};
+  };
 
   const handleShare = async () => {
-  try {
-    const filename = isInvoiceMode 
-      ? `Invoice_${documentId.invoice}.pdf`
-      : `Quotation_${documentId.quotation}.pdf`;
+    try {
+      const filename = isInvoiceMode 
+        ? `Invoice_${documentId.invoice}.pdf`
+        : `Quotation_${documentId.quotation}.pdf`;
 
-    const pdfData = await generatePDF({ filename, forShare: true });
-    if (!pdfData) throw new Error('No PDF data generated');
+      const pdfData = await generatePDF({ filename, forShare: true });
+      if (!pdfData) throw new Error('No PDF data generated');
 
-    const blob = dataURItoBlob(pdfData);
-    const pdfFile = new File([blob], filename, { type: 'application/pdf' });
+      const blob = dataURItoBlob(pdfData);
+      const pdfFile = new File([blob], filename, { type: 'application/pdf' });
 
-    if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
-      await navigator.share({
-        title: isInvoiceMode ? 'PC Build Invoice' : 'PC Build Quotation',
-        text: isInvoiceMode ? 'Here is your PC build invoice' : 'Check out this PC build quotation',
-        files: [pdfFile]
-      });
-    } else {
+      if (navigator.share && navigator.canShare?.({ files: [pdfFile] })) {
+        await navigator.share({
+          title: isInvoiceMode ? 'PC Build Invoice' : 'PC Build Quotation',
+          text: isInvoiceMode ? 'Here is your PC build invoice' : 'Check out this PC build quotation',
+          files: [pdfFile]
+        });
+      } else {
+        downloadPDF(pdfData, filename);
+        alert('PDF downloaded. Please share it manually.');
+      }
+    } catch (err) {
+      console.error('Share error:', err);
+      if (err instanceof Error && err.name !== 'AbortError') {
+        alert(`Error sharing document: ${err.message}`);
+      }
+    }
+  };
+
+  const handleGeneratePDF = async () => {
+    try {
+      const currentId = isInvoiceMode ? documentId.invoice : documentId.quotation;
+      const filename = isInvoiceMode 
+        ? `PC_Build_Invoice_${currentId}.pdf`
+        : `PC_Build_Quotation_${currentId}.pdf`;
+
+      const pdfData = await generatePDF({ filename });
+      if (!pdfData) throw new Error('No PDF data generated');
+
+      const pdfInfo: PDFInfo = {
+        id: currentId,
+        date: new Date().toISOString(),
+        customer: {
+          name: customer.name || '',
+          phone: customer.phone || '',
+          email: customer.email || '',
+          address: customer.address || ''
+        },
+        components: components.map(c => ({
+          name: c.name,
+          brand: c.brand,
+          quantity: c.quantity,
+          price: c.price
+        })),
+        subtotal,
+        discountRate,
+        discountAmount,
+        gstRate,
+        gstAmount,
+        totalAmount,
+        notes: notes || '',
+        pdfData,
+        type: isInvoiceMode ? 'invoice' : 'quotation'
+      };
+
+      await savePDFInfo(pdfInfo);
+      onSaveHistory(pdfData);
       downloadPDF(pdfData, filename);
-      alert('PDF downloaded. Please share it manually.');
+
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      alert(`Failed to generate PDF: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
-  } catch (err) {
-    console.error('Share error:', err);
-    if (err instanceof Error && err.name !== 'AbortError') {
-      alert(`Error sharing document: ${err.message}`);
-    }
-  }
-};
-
-// Update the handleGeneratePDF function in QuotationPreview.tsx
-const handleGeneratePDF = async () => {
-  try {
-    const filename = isInvoiceMode 
-      ? `PC_Build_Invoice_${documentId.invoice}.pdf`
-      : `PC_Build_Quotation_${documentId.quotation}.pdf`;
-
-    const pdfData = await generatePDF({ filename });
-    if (!pdfData) throw new Error('No PDF data generated');
-
-    const pdfInfo: PDFInfo = {
-      id: isInvoiceMode ? documentId.invoice : documentId.quotation,
-      date: new Date().toISOString(),
-      customer: {
-        name: customer.name || '',
-        phone: customer.phone || '',
-        email: customer.email || '',
-        address: customer.address || ''
-      },
-      components: components.map(c => ({
-        name: c.name,
-        brand: c.brand,
-        quantity: c.quantity,
-        price: c.price
-      })),
-      subtotal,
-      discountRate,
-      discountAmount,
-      gstRate,
-      gstAmount,
-      totalAmount,
-      notes,
-      pdfData,
-      type: isInvoiceMode ? 'invoice' : 'quotation'
-    };
-
-    // Save to storage
-    await savePDFInfo(pdfInfo);
-    
-    // Call the existing onSaveHistory function
-    onSaveHistory(pdfData);
-
-    // Download the PDF
-    downloadPDF(pdfData, filename);
-
-  } catch (err) {
-    console.error('PDF generation error:', err);
-    alert(`Failed to generate PDF: ${err instanceof Error ? err.message : 'Unknown error'}`);
-  }
-};
+  };
 
   const downloadPDF = (pdfData: string, filename: string) => {
     const blob = dataURItoBlob(pdfData);
@@ -334,12 +379,12 @@ const handleGeneratePDF = async () => {
               {isInvoiceMode ? 'Invoice Preview' : 'Quotation Preview'}
             </h2>
             <label className="relative inline-flex items-center cursor-pointer ml-2">
-              <input 
-                type="checkbox" 
-                className="sr-only peer" 
-                checked={isInvoiceMode}
-                onChange={() => setIsInvoiceMode(!isInvoiceMode)}
-              />
+  <input 
+    type="checkbox" 
+    className="sr-only peer" 
+    checked={isInvoiceMode}
+    onChange={toggleDocumentMode}  // Use the new toggle function
+  />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               <span className="ml-2 text-sm font-medium text-gray-700">
                 {isInvoiceMode ? 'Invoice' : 'Quotation'}
@@ -370,8 +415,6 @@ const handleGeneratePDF = async () => {
           </div>
         </div>
       </div>
-
-      
 
       {selectedQuotation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -428,44 +471,44 @@ const handleGeneratePDF = async () => {
         {components.length > 0 && (
           <div className="mb-4 print:mb-3">
             <h3 className="text-sm font-semibold text-gray-900 mb-1 print:text-base">Component Details</h3>
-<table className="w-full table-auto text-xs border border-gray-200 rounded overflow-hidden print:text-sm">
-  <thead className="bg-gray-100 text-gray-700">
-    <tr>
-      <th className="px-2 py-1 text-left">Component</th>
-      <th className="px-2 py-1 text-left">Brand</th>
-      <th className="px-2 py-1 text-right">Qty</th>
-      <th className="px-2 py-1 text-right">Unit Price</th>
-      <th className="px-2 py-1 text-right">Total</th>
-    </tr>
-  </thead>
-  <tbody>
-    {components.map((c, i) => {
-      const unitPrice = c.price || 0;
-      const quantity = c.quantity || 1;
-      const totalPrice = unitPrice * quantity;
-      
-      return (
-        <tr key={i} className="border-t border-gray-200">
-          <td className="px-2 py-1">{c.name}</td>
-          <td className="px-2 py-1">{c.brand}</td>
-          <td className="px-2 py-1 text-right">{quantity}</td>
-          <td className="px-2 py-1 text-right">
-            {new Intl.NumberFormat('en-IN', { 
-              style: 'currency', 
-              currency: 'INR' 
-            }).format(unitPrice).replace('₹', '₹')}
-          </td>
-          <td className="px-2 py-1 text-right">
-            {new Intl.NumberFormat('en-IN', { 
-              style: 'currency', 
-              currency: 'INR' 
-            }).format(totalPrice).replace('₹', '₹')}
-          </td>
-        </tr>
-      );
-    })}
-  </tbody>
-</table>
+            <table className="w-full table-auto text-xs border border-gray-200 rounded overflow-hidden print:text-sm">
+              <thead className="bg-gray-100 text-gray-700">
+                <tr>
+                  <th className="px-2 py-1 text-left">Component</th>
+                  <th className="px-2 py-1 text-left">Brand</th>
+                  <th className="px-2 py-1 text-right">Qty</th>
+                  <th className="px-2 py-1 text-right">Unit Price</th>
+                  <th className="px-2 py-1 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {components.map((c, i) => {
+                  const unitPrice = c.price || 0;
+                  const quantity = c.quantity || 1;
+                  const totalPrice = unitPrice * quantity;
+                  
+                  return (
+                    <tr key={i} className="border-t border-gray-200">
+                      <td className="px-2 py-1">{c.name}</td>
+                      <td className="px-2 py-1">{c.brand}</td>
+                      <td className="px-2 py-1 text-right">{quantity}</td>
+                      <td className="px-2 py-1 text-right">
+                        {new Intl.NumberFormat('en-IN', { 
+                          style: 'currency', 
+                          currency: 'INR' 
+                        }).format(unitPrice).replace('₹', '₹')}
+                      </td>
+                      <td className="px-2 py-1 text-right">
+                        {new Intl.NumberFormat('en-IN', { 
+                          style: 'currency', 
+                          currency: 'INR' 
+                        }).format(totalPrice).replace('₹', '₹')}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 
